@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="tr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVT-AV1 Batch Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#121214',
+                        cardbg: '#18181b',
+                        bordercolor: '#27272a',
+                        accent: '#f59e0b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #121214; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    </style>
+</head>
+<body class="bg-darkbg text-zinc-300 font-sans min-h-screen flex flex-col selection:bg-amber-500 selection:text-black">
+
+    <!-- ÜST BAŞLIK (HEADER) -->
+    <header class="bg-cardbg border-b border-bordercolor px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3.5">
+            <div class="bg-amber-500/10 p-2 rounded-lg border border-amber-500/20 text-amber-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-white tracking-wide">SVT-AV1 Batch Builder</h1>
+                <p class="text-[11px] text-zinc-500 font-mono">FFMPEG &rarr; SVTAV1ENCAPP &rarr; .CMD</p>
+            </div>
+        </div>
+
+        <!-- Gelişmiş Hazır Profiller (Quick Start) -->
+        <div class="flex items-center space-x-2 flex-wrap gap-y-2">
+            <span class="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold mr-1">Quick Start</span>
+            <button onclick="applyPreset('archive')" class="bg-zinc-800 hover:bg-zinc-700 text-xs px-3.5 py-1.5 rounded-md border border-zinc-700 transition font-medium text-amber-400">Archive</button>
+            <button onclick="applyPreset('balanced')" class="bg-zinc-800 hover:bg-zinc-700 text-xs px-3.5 py-1.5 rounded-md border border-zinc-700 transition font-medium">Balanced</button>
+            <button onclick="applyPreset('grainy')" class="bg-zinc-800 hover:bg-zinc-700 text-xs px-3.5 py-1.5 rounded-md border border-zinc-700 transition font-medium">Grainy Film</button>
+            <button onclick="applyPreset('fast')" class="bg-zinc-800 hover:bg-zinc-700 text-xs px-3.5 py-1.5 rounded-md border border-zinc-700 transition font-medium">Fast & Small</button>
+        </div>
+    </header>
+
+    <!-- SEKME NAVİGASYONU -->
+    <nav class="bg-cardbg/50 border-b border-bordercolor px-6 py-2 flex space-x-1.5 text-xs overflow-x-auto">
+        <button onclick="switchTab('files')" id="tab-btn-files" class="tab-btn px-3.5 py-2 rounded-md bg-zinc-800 text-white font-medium border border-zinc-700 flex items-center space-x-2 transition">
+            <span>1. Files & Queue</span>
+        </button>
+        <button onclick="switchTab('video')" id="tab-btn-video" class="tab-btn px-3.5 py-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 border border-transparent flex items-center space-x-2 transition">
+            <span>2. Video & Filters</span>
+        </button>
+        <button onclick="switchTab('svtav1')" id="tab-btn-svtav1" class="tab-btn px-3.5 py-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 border border-transparent flex items-center space-x-2 transition">
+            <span>3. SVT-AV1 Core</span>
+        </button>
+        <button onclick="switchTab('advanced')" id="tab-btn-advanced" class="tab-btn px-3.5 py-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 border border-transparent flex items-center space-x-2 transition">
+            <span>4. AQ / QM / Psychovisual</span>
+        </button>
+        <button onclick="switchTab('audio')" id="tab-btn-audio" class="tab-btn px-3.5 py-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 border border-transparent flex items-center space-x-2 transition">
+            <span>5. Audio & Subtitles</span>
+        </button>
+        <button onclick="switchTab('paths')" id="tab-btn-paths" class="tab-btn px-3.5 py-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800/60 border border-transparent flex items-center space-x-2 transition">
+            <span>6. Global Paths</span>
+        </button>
+    </nav>
+
+    <!-- ANA İÇERİK -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 overflow-hidden">
+        
+        <!-- SOL PANEL: KONTROLLER (7 Sütun) -->
+        <div class="lg:col-span-7 space-y-5 overflow-y-auto pr-2 max-h-[calc(100vh-165px)]">
+
+            <!-- SEKME 1: FILES & QUEUE -->
+            <div id="tab-files" class="tab-content space-y-5">
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Kaynak Dosya ve Kuyruk Yönetimi</h2>
+                        <span id="activeBaseBadge" class="text-[10px] text-zinc-400 font-mono bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">Klasör: C:\Users\Windows11\Videos\</span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Kaynak Video Dosyası (File Name veya Tam Yol)</label>
+                            <div class="flex space-x-2">
+                                <input type="text" id="srcFile" value="test.mkv" oninput="updateLiveScript()" class="flex-1 bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500 font-mono">
+                                <label class="bg-zinc-800 hover:bg-zinc-700 text-xs px-4 py-2 rounded-lg border border-zinc-700 cursor-pointer flex items-center transition font-medium text-white">
+                                    <span>Dosya Seç</span>
+                                    <input type="file" accept="video/*,.mkv,.mp4,.avi,.mov,.ts,.m2ts" class="hidden" onchange="handleFileSelect(this)">
+                                </label>
+                            </div>
+                            <p id="probeStatus" class="text-[10px] text-zinc-500 mt-1">Dosya seçildiğinde 6. sekmedeki Ana Kaynak Klasörü otomatik eklenir ve çözünürlük okunur.</p>
+							<div id="mediaInfoBox" class="hidden bg-zinc-900/90 border border-zinc-800 rounded-lg p-3 text-[11px] font-mono space-y-1.5">
+								<div class="flex items-center justify-between">
+								<span class="text-zinc-400">Video Çözünürlük:</span>
+								<span id="infoVideoRes" class="text-emerald-400 font-semibold">-</span>
+							</div>
+							<div class="flex items-start justify-between">
+								<span class="text-zinc-400">Algılanan Ses Akışları:</span>
+								<div id="infoAudioTracks" class="text-amber-400 text-right">-</div>
+								</div>
+							</div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-4 items-end">
+                            <div>
+                                <label class="block text-xs text-zinc-400 mb-1">Kaynak Genişlik (W)</label>
+                                <input type="number" id="origWidth" value="1920" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500 font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-zinc-400 mb-1">Kaynak Yükseklik (H)</label>
+                                <input type="number" id="origHeight" value="1080" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500 font-mono">
+                            </div>
+                            <div>
+                                <button onclick="addToQueue()" class="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs py-2 px-4 rounded-lg transition shadow">
+                                    + Kuyruğa Ekle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xs font-semibold text-white tracking-wider uppercase">İşlem Kuyruğu (Batch Queue)</h2>
+                        <button onclick="clearQueue()" class="text-[11px] text-red-400 hover:text-red-300">Listeyi Temizle</button>
+                    </div>
+                    <div id="queueContainer" class="space-y-2 max-h-48 overflow-y-auto">
+                        <div class="text-xs text-zinc-500 italic py-4 text-center border border-dashed border-zinc-800 rounded-lg">
+                            Kuyruk boş. Kuyruğa ekleme yapmazsanız sağdaki önizleme doğrudan yukarıdaki aktif dosyayı baz alır.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEKME 2: VIDEO & FILTERS -->
+            <div id="tab-video" class="tab-content hidden space-y-5">
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-5">
+                    <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Çözünürlük, Kırpma (CropV) ve Süre</h2>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Hedef Genişlik (Width)</label>
+                            <input type="number" id="targetWidth" value="1920" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Dikey Kırpma (CropV px)</label>
+                            <input type="text" id="cropV" placeholder="Örn: 280" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Başlangıç (-ss)</label>
+                            <input type="text" id="durStart" placeholder="00:00:00" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Bitiş (-to)</label>
+                            <input type="text" id="durEnd" placeholder="00:05:00" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-5">
+                    <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Renk, Gamma ve Ton Eşleme (EQ & BT.709)</h2>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Brightness</label>
+                            <input type="text" id="brightness" value="0" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Contrast</label>
+                            <input type="text" id="contrast" value="1.00" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Saturation</label>
+                            <input type="text" id="saturation" value="1.00" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Gamma</label>
+                            <input type="text" id="gamma" value="1.00" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 bg-zinc-900/50 rounded-lg border border-zinc-800/60">
+                        <div>
+                            <div class="text-xs font-medium text-white">HDR &rarr; SDR Tonemap (BT.709)</div>
+                            <div class="text-[10px] text-zinc-500">Mobius tonemap ve BT.709 renk uzayı dönüşümü uygular.</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="bt709" onchange="updateLiveScript()" class="sr-only peer">
+                            <div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEKME 3: SVT-AV1 CORE -->
+            <div id="tab-svtav1" class="tab-content hidden space-y-5">
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-5">
+                    <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Temel Kodlama Parametreleri</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-medium text-zinc-400">QUALITY (CRF)</span>
+                                <span id="val-crf" class="text-xs font-bold text-amber-500">30</span>
+                            </div>
+                            <input type="range" id="crf" min="0" max="63" value="30" oninput="document.getElementById('val-crf').innerText=this.value; updateLiveScript()" class="w-full accent-amber-500 bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                            <p class="text-[10px] text-zinc-500">Düşük değer = Daha yüksek kalite ve dosya boyutu.</p>
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-medium text-zinc-400">ENCODE PRESET</span>
+                                <span id="val-preset" class="text-xs font-bold text-amber-500">5</span>
+                            </div>
+                            <input type="range" id="preset" min="0" max="13" value="5" oninput="document.getElementById('val-preset').innerText=this.value; updateLiveScript()" class="w-full accent-amber-500 bg-zinc-700 h-1.5 rounded-lg appearance-none cursor-pointer">
+                            <p class="text-[10px] text-zinc-500">0: En yavaş/en verimli, 13: En hızlı.</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Tune Modu</label>
+                            <select id="tune" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                                <option value="0">0 - VQ (Visual Quality)</option>
+                                <option value="1" selected>1 - PSNR</option>
+                                <option value="2">2 - SSIM</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Max Bitrate (--mbr kbps)</label>
+                            <input type="number" id="maxrate" value="4000" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Scene Change (SCD)</label>
+                            <select id="scd" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+                                <option value="1" selected>1 - Açık (Varsayılan)</option>
+                                <option value="0">0 - Kapalı (--scd 0)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 bg-zinc-900/50 rounded-lg border border-zinc-800/60">
+                        <div>
+                            <div class="text-xs font-medium text-white">10-Bit Renk Derinliği (yuv420p10le)</div>
+                            <div class="text-[10px] text-zinc-500">Renk geçişlerindeki bantlaşmayı (banding) önler, sıkıştırma verimini artırır.</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="bit10" checked onchange="updateLiveScript()" class="sr-only peer">
+                            <div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEKME 4: AQ / QM / PSYCHOVISUAL -->
+            <div id="tab-advanced" class="tab-content hidden space-y-5">
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-4">
+                    <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Adaptive Quantization & Variance Boost</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">AQ Mode</label>
+                            <select id="aqmode" onchange="toggleAdvancedStates(); updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="0">0 - Kapalı</option>
+                                <option value="1">1 - Variance</option>
+                                <option value="2" selected>2 - DeltaQ (Önerilen)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">VB Strength</label>
+                            <select id="vbstrength" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="1">1</option>
+                                <option value="2" selected>2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Variance Octile</label>
+                            <select id="octile" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option>
+                                <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+                                <option value="7">7</option><option value="8">8</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between p-3 bg-zinc-900/50 rounded-lg border border-zinc-800/60">
+                        <div>
+                            <div class="text-xs font-medium text-white">Enable Variance Boost</div>
+                            <div class="text-[10px] text-zinc-500">Karanlık ve düz sahnelerde detay korumasını güçlendirir (AQ Mode 2 gerektirir).</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="vboost" checked onchange="toggleAdvancedStates(); updateLiveScript()" class="sr-only peer">
+                            <div class="w-9 h-5 bg-zinc-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Quantization Matrices (QM) & Filtreler</h2>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" id="qmmode" checked onchange="toggleAdvancedStates(); updateLiveScript()" class="accent-amber-500 rounded">
+                            <span class="text-xs font-medium text-amber-500">QM Aktif</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">QM Min</label>
+                            <input type="number" id="qmmin" min="0" max="15" value="0" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">QM Max</label>
+                            <input type="number" id="qmmax" min="0" max="15" value="8" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Luminance QP Bias</label>
+                            <input type="number" id="lumaqp" value="15" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">QP Scale Compress</label>
+                            <select id="qpscalecomp" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="0.5">0.5</option>
+                                <option value="1">1</option>
+                                <option value="2" selected>2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Temporal Filter</label>
+                            <select id="tfilter" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="0" selected>0 (Kapalı)</option>
+                                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Sharpness (-7..7)</label>
+                            <input type="number" id="sharpness" min="-7" max="7" value="0" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Noise Norm (0..4)</label>
+                            <input type="number" id="noisens" min="0" max="4" value="0" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">SPY RD (0..3)</label>
+                            <input type="number" id="spyrd" min="0" max="3" value="0" oninput="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEKME 5: AUDIO & SUBTITLES -->
+            <div id="tab-audio" class="tab-content hidden space-y-5">
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-4">
+                    <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Ses Kodlama Ayarları (libopus - Constrained VBR)</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Ses Akışı (Stream)</label>
+                            <select id="audioLine" onchange="toggleAudioStates(); updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="none">No Audio (Ses Yok)</option>
+                                <option value="1" selected>Stream #1 (Varsayılan İlk Ses)</option>
+                                <option value="2">Stream #2</option>
+                                <option value="3">Stream #3</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-zinc-900/50 rounded-lg border border-zinc-800/60">
+                            <span class="text-xs font-medium text-white">Doğrudan Kopyala (Stream Copy)</span>
+                            <input type="checkbox" id="audioCopy" onchange="toggleAudioStates(); updateLiveScript()" class="accent-amber-500 h-4 w-4">
+                        </div>
+                    </div>
+
+                    <div id="opusControls" class="grid grid-cols-2 gap-4 pt-2">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Opus Bitrate (kbps)</label>
+                            <select id="opusBitrate" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="48">48 kbps</option>
+                                <option value="56">56 kbps</option>
+                                <option value="64">64 kbps</option>
+                                <option value="80" selected>80 kbps</option>
+                                <option value="96">96 kbps</option>
+                                <option value="128">128 kbps</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Kanal Sayısı (-ac)</label>
+                            <select id="audioChannel" onchange="updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white">
+                                <option value="2">2 (Stereo)</option>
+                                <option value="4">4 (Quad)</option>
+                                <option value="6" selected>6 (5.1 Surround)</option>
+                                <option value="8">8 (7.1 Surround)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-medium text-white">Tüm Altyazıları Kopyala (Copy All Subtitles)</div>
+                            <div class="text-[10px] text-zinc-500">Kaynak dosyadaki tüm altyazı akışlarını (-map s?) final MKV dosyasına aktarır.</div>
+                        </div>
+                        <input type="checkbox" id="subCopy" onchange="updateLiveScript()" class="accent-amber-500 h-4 w-4">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEKME 6: GLOBAL PATHS -->
+            <div id="tab-paths" class="tab-content hidden space-y-4">
+                <div class="bg-cardbg border border-bordercolor rounded-xl p-5 space-y-4">
+                    <h2 class="text-xs font-semibold text-white tracking-wider uppercase">Sistem ve Klasör Yolları (Otomatik Kaydedilir)</h2>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs text-amber-400 font-medium mb-1">Ana Kaynak Klasörü (Source Base Directory)</label>
+                            <input type="text" id="baseFolder" value="C:\Users\Windows11\Videos\" oninput="savePathsToStorage(); updateLiveScript()" class="w-full bg-zinc-900 border border-amber-500/40 text-xs rounded-lg px-3 py-2 text-white font-mono">
+                            <p class="text-[10px] text-zinc-500 mt-0.5">1. sekmede seçilen tüm kaynak videoların bulunduğu ortak klasör.</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Çıktı Klasörü (Output Directory)</label>
+                            <input type="text" id="outputDir" value="C:\Users\Windows11\Desktop\" oninput="savePathsToStorage(); updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white font-mono">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Geçici Klasör (Temp Directory)</label>
+                            <input type="text" id="tempDir" value="C:\Users\Windows11\Desktop\TEMP\" oninput="savePathsToStorage(); updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white font-mono">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                            <div>
+                                <label class="block text-xs text-zinc-400 mb-1">FFmpeg Yolu</label>
+                                <input type="text" id="ffmpegPath" value="C:\Windows\system32\ffmpeg.exe" oninput="savePathsToStorage(); updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-zinc-400 mb-1">SvtAv1EncApp Yolu</label>
+                                <input type="text" id="svtPath" value="C:\Windows\system32\SvtAv1EncApp.exe" oninput="savePathsToStorage(); updateLiveScript()" class="w-full bg-zinc-900 border border-zinc-700 text-xs rounded-lg px-3 py-2 text-white font-mono">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SAĞ PANEL: CANLI .CMD ÖNİZLEMESİ (5 Sütun) -->
+        <div class="lg:col-span-5 bg-cardbg border border-bordercolor rounded-xl flex flex-col overflow-hidden shadow-lg">
+            <div class="bg-zinc-900/90 px-4 py-3 border-b border-bordercolor flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
+                    <span id="previewFilename" class="text-xs font-mono font-medium text-white">encode_queue.cmd</span>
+                </div>
+                <div class="flex items-center space-x-1.5">
+                    <span id="badge-files" class="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded border border-zinc-700 font-mono">1 FILE</span>
+                    <span id="badge-preset" class="text-[10px] bg-zinc-800 text-amber-400 px-2 py-0.5 rounded border border-zinc-700 font-mono">P5</span>
+                    <span id="badge-crf" class="text-[10px] bg-zinc-800 text-amber-400 px-2 py-0.5 rounded border border-zinc-700 font-mono">CRF 30</span>
+                </div>
+            </div>
+
+            <pre id="scriptPreview" class="flex-1 p-4 font-mono text-[11px] bg-[#0d0d0f] text-zinc-300 overflow-auto max-h-[calc(100vh-280px)] leading-relaxed whitespace-pre-wrap break-all select-all"></pre>
+
+            <div class="p-3.5 bg-zinc-900/90 border-t border-bordercolor flex items-center justify-between space-x-2">
+                <button onclick="downloadBatFile()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center space-x-2 transition shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    <span>.CMD Dosyasını İndir (GGAAHHMMSS.cmd)</span>
+                </button>
+                <button onclick="copyScript()" id="copyBtn" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs py-2.5 px-4 rounded-lg border border-zinc-700 flex items-center space-x-1.5 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                    <span>Kopyala</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let queue = [];
+
+        function getTimestampFilename() {
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            return `${dd}${mm}${hh}${min}${ss}.cmd`;
+        }
+
+        function loadPathsFromStorage() {
+            const savedPaths = JSON.parse(localStorage.getItem('svt_global_paths'));
+            if (savedPaths) {
+                if (savedPaths.baseFolder) document.getElementById('baseFolder').value = savedPaths.baseFolder;
+                if (savedPaths.tempDir) document.getElementById('tempDir').value = savedPaths.tempDir;
+                if (savedPaths.outputDir) document.getElementById('outputDir').value = savedPaths.outputDir;
+                if (savedPaths.ffmpegPath) document.getElementById('ffmpegPath').value = savedPaths.ffmpegPath;
+                if (savedPaths.svtPath) document.getElementById('svtPath').value = savedPaths.svtPath;
+            }
+            updateBaseFolderBadge();
+        }
+
+        function savePathsToStorage() {
+            const pathsData = {
+                baseFolder: document.getElementById('baseFolder').value,
+                tempDir: document.getElementById('tempDir').value,
+                outputDir: document.getElementById('outputDir').value,
+                ffmpegPath: document.getElementById('ffmpegPath').value,
+                svtPath: document.getElementById('svtPath').value
+            };
+            localStorage.setItem('svt_global_paths', JSON.stringify(pathsData));
+            updateBaseFolderBadge();
+        }
+
+        function updateBaseFolderBadge() {
+            let bf = document.getElementById('baseFolder').value.trim();
+            if (bf && !bf.endsWith('\\')) bf += '\\';
+            document.getElementById('activeBaseBadge').innerText = `Klasör: ${bf}`;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-zinc-800', 'text-white', 'border-zinc-700');
+                btn.classList.add('text-zinc-400', 'border-transparent');
+            });
+            const activeBtn = document.getElementById('tab-btn-' + tabId);
+            activeBtn.classList.remove('text-zinc-400', 'border-transparent');
+            activeBtn.classList.add('bg-zinc-800', 'text-white', 'border-zinc-700');
+        }
+
+        async function handleFileSelect(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    document.getElementById('srcFile').value = file.name;
+
+    const statusEl = document.getElementById('probeStatus');
+    const infoBox = document.getElementById('mediaInfoBox');
+    const videoResEl = document.getElementById('infoVideoRes');
+    const audioTracksEl = document.getElementById('infoAudioTracks');
+
+    statusEl.innerText = "Medya başlıkları analiz ediliyor...";
+    statusEl.className = "text-[10px] text-amber-400 mt-1";
+    infoBox.classList.remove('hidden');
+
+    // 1. HTML5 Video ile Çözünürlük ve Temel Ses İzi Kontrolü
+    const tempVideo = document.createElement('video');
+    tempVideo.preload = 'metadata';
+    const objectUrl = URL.createObjectURL(file);
+
+    tempVideo.onloadedmetadata = function() {
+        const w = tempVideo.videoWidth;
+        const h = tempVideo.videoHeight;
+        URL.revokeObjectURL(objectUrl);
+
+        if (w > 0 && h > 0) {
+            document.getElementById('origWidth').value = w;
+            document.getElementById('origHeight').value = h;
+            document.getElementById('targetWidth').value = w;
+            videoResEl.innerText = `${w} x ${h} px`;
+        } else {
+            videoResEl.innerText = "Elle giriş gerekli (MKV/HEVC)";
+        }
+        updateLiveScript();
+    };
+
+    tempVideo.onerror = function() {
+        URL.revokeObjectURL(objectUrl);
+        videoResEl.innerText = "Tarayıcı önizlemesi yok (Elle kontrol edin)";
+    };
+    tempVideo.src = objectUrl;
+
+    // 2. Binary Header Tarama (MKV / MP4 Ses Codec ve Kanal Tespiti)
+    try {
+        const slice = file.slice(0, 524288); // İlk 512 KB
+        const buffer = await slice.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const detectedAudios = parseAudioHeaders(bytes, file.name);
+
+        if (detectedAudios.length > 0) {
+            audioTracksEl.innerHTML = detectedAudios.map((a, idx) => 
+                `<div>Stream #${idx + 1}: <span class="text-white">${a.codec}</span> (${a.channels} ch${a.rate ? ' @ ' + a.rate + 'Hz' : ''})</div>`
+            ).join('');
+
+            // İlk ses akışının kanal sayısını 5. sekmedeki kanal seçimine otomatik uygula
+            const firstCh = detectedAudios[0].channels;
+            const chSelect = document.getElementById('audioChannel');
+            if ([2, 4, 6, 8].includes(firstCh)) {
+                chSelect.value = String(firstCh);
+            }
+            statusEl.innerText = "Video ve ses bilgileri başarıyla okundu.";
+            statusEl.className = "text-[10px] text-emerald-400 mt-1";
+        } else {
+            audioTracksEl.innerText = "Detaylı başlık bulunamadı (Varsayılan Stream #1 aktif)";
+            statusEl.innerText = "Analiz tamamlandı.";
+            statusEl.className = "text-[10px] text-zinc-400 mt-1";
+        }
+    } catch (err) {
+        audioTracksEl.innerText = "Başlık okunamadı";
+    }
+    updateLiveScript();
+}
+
+// MKV (Matroska) ve MP4 Başlıklarından Ses Akışlarını Ayıklayan Hafif Parser
+function parseAudioHeaders(bytes, fileName) {
+    const results = [];
+    const textDecoder = new TextDecoder('latin1');
+    const headerStr = textDecoder.decode(bytes);
+
+    // Matroska / WebM Codec ID imzaları (A_AAC, A_AC3, A_EAC3, A_DTS, A_OPUS, A_FLAC, A_TRUEHD, A_MPEG/L3)
+    const mkvRegex = /A_(AAC(?:\/MPEG[24]\/LC)?|AC3|EAC3|DTS|OPUS|FLAC|TRUEHD|VORBIS|MPEG\/L3)/g;
+    let match;
+    while ((match = mkvRegex.exec(headerStr)) !== null) {
+        const codecName = match[1].replace('MPEG/L3', 'MP3');
+        // Eşleşmenin etrafındaki baytlardan kanal sayısını tahmin et (Matroska 0x9F ID'si kanal sayısını tutar)
+        let channels = 2;
+        const searchStart = Math.max(0, match.index - 40);
+        const searchEnd = Math.min(bytes.length - 3, match.index + 60);
+        for (let i = searchStart; i < searchEnd; i++) {
+            if (bytes[i] === 0x9F && bytes[i + 1] === 0x81) {
+                const chVal = bytes[i + 2];
+                if (chVal >= 1 && chVal <= 8) {
+                    channels = chVal;
+                    break;
+                }
+            }
+        }
+        results.push({ codec: codecName, channels: channels, rate: 48000 });
+    }
+
+    // Eğer MP4/MOV ise (mp4a, ac-3, ec-3, Opus atomları)
+    if (results.length === 0) {
+        const mp4Regex = /(mp4a|ac-3|ec-3|Opus|fLaC)/g;
+        const seen = new Set();
+        while ((match = mp4Regex.exec(headerStr)) !== null) {
+            const tag = match[1];
+            if (!seen.has(tag)) {
+                seen.add(tag);
+                let label = tag === 'mp4a' ? 'AAC' : tag.toUpperCase();
+                let ch = (tag === 'ac-3' || tag === 'ec-3') ? 6 : 2;
+                results.push({ codec: label, channels: ch, rate: 48000 });
+            }
+        }
+    }
+
+    return results;
+}
+
+        function toggleAdvancedStates() {
+            const aq = document.getElementById('aqmode').value;
+            const vbCheck = document.getElementById('vboost');
+            vbCheck.disabled = (aq !== '2');
+            document.getElementById('vbstrength').disabled = (aq !== '2' || !vbCheck.checked);
+            document.getElementById('octile').disabled = (aq !== '2' || !vbCheck.checked);
+
+            const qmEnabled = document.getElementById('qmmode').checked;
+            document.getElementById('qmmin').disabled = !qmEnabled;
+            document.getElementById('qmmax').disabled = !qmEnabled;
+        }
+
+        function toggleAudioStates() {
+            const line = document.getElementById('audioLine').value;
+            const copy = document.getElementById('audioCopy');
+            const opusDiv = document.getElementById('opusControls');
+
+            if (line === 'none') {
+                copy.disabled = true;
+                opusDiv.classList.add('opacity-40', 'pointer-events-none');
+            } else {
+                copy.disabled = false;
+                if (copy.checked) {
+                    opusDiv.classList.add('opacity-40', 'pointer-events-none');
+                } else {
+                    opusDiv.classList.remove('opacity-40', 'pointer-events-none');
+                }
+            }
+        }
+
+        // Gelişmiş Hazır Profiller (Archive, Balanced, Grainy, Fast)
+        function applyPreset(type) {
+            const presets = {
+                archive: {
+                    preset: 5, crf: 51, tune: "1", maxrate: 4000, scd: "1", bit10: true,
+                    aqmode: "2", vboost: true, vbstrength: "1", octile: "2",
+                    qmmode: true, qmmin: 0, qmmax: 8, lumaqp: 15, qpscalecomp: "2",
+                    tfilter: "0", sharpness: 1, noisens: 0, spyrd: "0",
+                    audioLine: "1", audioCopy: false, opusBitrate: "80", audioChannel: "6"
+                },
+                balanced: {
+                    preset: 5, crf: 52, tune: "1", maxrate: 4000, scd: "1", bit10: true,
+                    aqmode: "2", vboost: true, vbstrength: "2", octile: "3",
+                    qmmode: true, qmmin: 0, qmmax: 8, lumaqp: 15, qpscalecomp: "2",
+                    tfilter: "0", sharpness: 1, noisens: 0, spyrd: "0",
+                    audioLine: "1", audioCopy: false, opusBitrate: "80", audioChannel: "6"
+                },
+                grainy: {
+                    preset: 5, crf: 52, tune: "1", maxrate: 4000, scd: "1", bit10: true,
+                    aqmode: "2", vboost: true, vbstrength: "2", octile: "4",
+                    qmmode: true, qmmin: 2, qmmax: 10, lumaqp: 10, qpscalecomp: "2",
+                    tfilter: "2", sharpness: 0, noisens: 2, spyrd: "0",
+                    audioLine: "1", audioCopy: false, opusBitrate: "80", audioChannel: "6"
+                },
+                fast: {
+                    preset: 6, crf: 52, tune: "1", maxrate: 2500, scd: "1", bit10: true,
+                    aqmode: "2", vboost: true, vbstrength: "1", octile: "3",
+                    qmmode: true, qmmin: 4, qmmax: 12, lumaqp: 20, qpscalecomp: "1",
+                    tfilter: "2", sharpness: 0, noisens: 0, spyrd: "0",
+                    audioLine: "1", audioCopy: false, opusBitrate: "80", audioChannel: "6"
+                }
+            };
+
+            const p = presets[type];
+            if (!p) return;
+
+            document.getElementById('preset').value = p.preset;
+            document.getElementById('val-preset').innerText = p.preset;
+            document.getElementById('crf').value = p.crf;
+            document.getElementById('val-crf').innerText = p.crf;
+            document.getElementById('tune').value = p.tune;
+            document.getElementById('maxrate').value = p.maxrate;
+            document.getElementById('scd').value = p.scd;
+            document.getElementById('bit10').checked = p.bit10;
+
+            document.getElementById('aqmode').value = p.aqmode;
+            document.getElementById('vboost').checked = p.vboost;
+            document.getElementById('vbstrength').value = p.vbstrength;
+            document.getElementById('octile').value = p.octile;
+
+            document.getElementById('qmmode').checked = p.qmmode;
+            document.getElementById('qmmin').value = p.qmmin;
+            document.getElementById('qmmax').value = p.qmmax;
+            document.getElementById('lumaqp').value = p.lumaqp;
+            document.getElementById('qpscalecomp').value = p.qpscalecomp;
+            document.getElementById('tfilter').value = p.tfilter;
+            document.getElementById('sharpness').value = p.sharpness;
+            document.getElementById('noisens').value = p.noisens;
+            document.getElementById('spyrd').value = p.spyrd;
+
+            // Ses Ayarları Profili
+            document.getElementById('audioLine').value = p.audioLine;
+            document.getElementById('audioCopy').checked = p.audioCopy;
+            document.getElementById('opusBitrate').value = p.opusBitrate;
+            document.getElementById('audioChannel').value = p.audioChannel;
+
+            toggleAdvancedStates();
+            toggleAudioStates();
+            updateLiveScript();
+        }
+
+        // Tek Bir İş İçin FFmpeg + SVT-AV1 Komutu Üretme
+        function buildSingleJobCommand() {
+            let baseFolder = document.getElementById('baseFolder').value.trim();
+            let rawInput = document.getElementById('srcFile').value.trim();
+            if (!rawInput) return "";
+
+            if (baseFolder && !baseFolder.endsWith('\\')) baseFolder += '\\';
+            const inputFile = (rawInput.includes(':') || rawInput.startsWith('\\\\')) ? rawInput : (baseFolder + rawInput);
+
+            let tempBase = document.getElementById('tempDir').value.trim();
+            let outBase = document.getElementById('outputDir').value.trim();
+            const ffmpegExe = document.getElementById('ffmpegPath').value.trim();
+            const svtExe = document.getElementById('svtPath').value.trim();
+
+            if (!tempBase.endsWith('\\')) tempBase += '\\';
+            if (!outBase.endsWith('\\')) outBase += '\\';
+
+            const fileNameWithExt = inputFile.split('\\').pop();
+            const baseName = fileNameWithExt.replace(/\.[^/.]+$/, "");
+            
+            const now = new Date();
+            const stamp = now.getFullYear().toString() +
+                String(now.getMonth() + 1).padStart(2, '0') +
+                String(now.getDate()).padStart(2, '0') + "_" +
+                String(now.getHours()).padStart(2, '0') +
+                String(now.getMinutes()).padStart(2, '0') +
+                String(now.getSeconds()).padStart(2, '0');
+
+            const workTempDir = `${tempBase}${baseName}_${stamp}\\`;
+            const tempIVF = `${workTempDir}video_temp.ivf`;
+            const tempOpus = `${workTempDir}audio_temp.opus`;
+            const finalMKV = `${outBase}${baseName}_av1.mkv`;
+
+            const durStart = document.getElementById('durStart').value.trim();
+            const durEnd = document.getElementById('durEnd').value.trim();
+            const audioLine = document.getElementById('audioLine').value;
+            const audioCopy = document.getElementById('audioCopy').checked;
+            const hasAudio = (audioLine !== 'none');
+
+            let cmd = `if not exist "${workTempDir}" mkdir "${workTempDir}" && `;
+
+            // 1. Ses Kodlama (libopus - Constrained VBR Sabit)
+            if (hasAudio && !audioCopy) {
+                const opusBitrate = document.getElementById('opusBitrate').value;
+                const audioCh = document.getElementById('audioChannel').value;
+
+                cmd += `"${ffmpegExe}" -hide_banner -loglevel error -y `;
+                if (durStart) cmd += `-ss ${durStart} `;
+                if (durEnd) cmd += `-to ${durEnd} `;
+                cmd += `-i "${inputFile}" -map 0:${audioLine} -c:a libopus -b:a ${opusBitrate}k -ac ${audioCh} -vbr constrained "${tempOpus}" && `;
+            }
+
+            // 2. Video Pipe
+            cmd += `"${ffmpegExe}" -hide_banner -loglevel error `;
+            if (durStart) cmd += `-ss ${durStart} `;
+            if (durEnd) cmd += `-to ${durEnd} `;
+            cmd += `-i "${inputFile}"`;
+
+            let filters = [];
+            const cropV = document.getElementById('cropV').value.trim();
+            if (cropV) {
+                if (!isNaN(cropV) && Number(cropV) > 0) {
+                    filters.push(`crop=iw:ih-${cropV}:0:${Math.floor(Number(cropV)/2)}`);
+                } else {
+                    filters.push(`crop=${cropV}`);
+                }
+            }
+
+            const targetW = document.getElementById('targetWidth').value.trim();
+            const origW = document.getElementById('origWidth').value.trim();
+            if (targetW && targetW !== origW) {
+                filters.push(`scale=${targetW}:-1:flags=fast_bilinear`);
+            }
+
+            const bright = document.getElementById('brightness').value.trim();
+            const cont = document.getElementById('contrast').value.trim();
+            const sat = document.getElementById('saturation').value.trim();
+            const gamma = document.getElementById('gamma').value.trim();
+            if (bright !== "0" || cont !== "1.00" || sat !== "1.00" || (gamma !== "1.00" && gamma !== "")) {
+                filters.push(`eq=brightness=${bright}:contrast=${cont}:saturation=${sat}:gamma=${gamma}`);
+            }
+
+            const bt709 = document.getElementById('bt709').checked;
+            if (bt709) {
+                filters.push(`zscale=t=linear,tonemap=mobius:param=0.3:desat=0,zscale=p=bt709:t=bt709:m=bt709`);
+            }
+
+            if (filters.length > 0) {
+                cmd += ` -vf "${filters.join(',')}"`;
+            }
+
+            const bit10 = document.getElementById('bit10').checked;
+            cmd += bit10 ? ` -c:v rawvideo -pix_fmt yuv420p10le` : ` -c:v rawvideo -pix_fmt yuv420p`;
+            cmd += ` -f yuv4mpegpipe -strict -1 - | `;
+
+            const preset = document.getElementById('preset').value;
+            const crf = document.getElementById('crf').value;
+            const scd = document.getElementById('scd').value;
+            const tune = document.getElementById('tune').value;
+            const maxrate = Number(document.getElementById('maxrate').value);
+            const aqmode = document.getElementById('aqmode').value;
+            const vboost = document.getElementById('vboost').checked;
+            const vbstrength = document.getElementById('vbstrength').value;
+            const octile = document.getElementById('octile').value;
+            const qmmode = document.getElementById('qmmode').checked;
+            const qmmin = document.getElementById('qmmin').value;
+            const qmmax = document.getElementById('qmmax').value;
+            const lumaqp = document.getElementById('lumaqp').value;
+            const qpscalecomp = document.getElementById('qpscalecomp').value;
+            const tfilter = document.getElementById('tfilter').value;
+            const noisens = document.getElementById('noisens').value;
+            const spyrd = document.getElementById('spyrd').value;
+            const sharpness = document.getElementById('sharpness').value;
+
+            cmd += `"${svtExe}" -i stdin --progress 1 --preset ${preset} --crf ${crf}`;
+            if (scd === "0") cmd += ` --scd 0`;
+            if (tune !== "0") cmd += ` --tune ${tune}`;
+            if (maxrate > 0) cmd += ` --mbr ${maxrate}`;
+            cmd += ` --aq-mode ${aqmode}`;
+            if (aqmode === "2" && vboost) {
+                cmd += ` --enable-variance-boost 1 --variance-boost-strength ${vbstrength} --variance-octile ${octile}`;
+            }
+            if (qmmode) {
+                cmd += ` --enable-qm 1 --qm-min ${qmmin} --qm-max ${qmmax}`;
+            }
+            if (lumaqp !== "") cmd += ` --luminance-qp-bias ${lumaqp}`;
+            if (qpscalecomp !== "") cmd += ` --qp-scale-compress-strength ${qpscalecomp}`;
+            cmd += ` --enable-tf ${tfilter || 0}`;
+            cmd += ` --noise-norm-strength ${noisens || 0}`;
+            if (spyrd && spyrd !== "0") cmd += ` --enable-spy-rd ${spyrd}`;
+            if (sharpness && sharpness !== "0") cmd += ` --sharpness ${sharpness}`;
+            cmd += ` --tile-columns 0 --tile-rows 0`;
+            if (bt709) cmd += ` --color-primaries 1 --transfer-characteristics 1 --matrix-coefficients 1`;
+            cmd += ` -b "${tempIVF}" && `;
+
+            // 3. Final Muxing
+            cmd += `"${ffmpegExe}" -hide_banner -loglevel error -y -i "${tempIVF}"`;
+            if (hasAudio) {
+                if (audioCopy) {
+                    cmd += ` -i "${inputFile}" -map 0:v -map 1:${audioLine} -c:v copy -c:a copy `;
+                } else {
+                    cmd += ` -i "${tempOpus}" -map 0:v -map 1:a -c:v copy -c:a copy `;
+                }
+            } else {
+                cmd += ` -map 0:v -c:v copy `;
+            }
+
+            if (document.getElementById('subCopy').checked) {
+                if (hasAudio && !audioCopy) {
+                    cmd += `-i "${inputFile}" -map 2:s? -c:s copy `;
+                } else if (!hasAudio) {
+                    cmd += `-i "${inputFile}" -map 1:s? -c:s copy `;
+                } else {
+                    cmd += `-map 1:s? -c:s copy `;
+                }
+            }
+
+            cmd += `"${finalMKV}"`;
+            return cmd;
+        }
+
+        // Kuyruk İşlemleri
+        function addToQueue() {
+            const src = document.getElementById('srcFile').value.trim();
+            if (!src) return;
+            const cmd = buildSingleJobCommand();
+            const preset = document.getElementById('preset').value;
+            const crf = document.getElementById('crf').value;
+
+            queue.push({
+                name: src.split('\\').pop(),
+                info: `Preset ${preset} | CRF ${crf}`,
+                command: cmd
+            });
+            renderQueue();
+            updateLiveScript();
+        }
+
+        function removeFromQueue(idx) {
+            queue.splice(idx, 1);
+            renderQueue();
+            updateLiveScript();
+        }
+
+        function clearQueue() {
+            queue = [];
+            renderQueue();
+            updateLiveScript();
+        }
+
+        function renderQueue() {
+            const container = document.getElementById('queueContainer');
+            if (queue.length === 0) {
+                container.innerHTML = `<div class="text-xs text-zinc-500 italic py-4 text-center border border-dashed border-zinc-800 rounded-lg">Kuyruk boş. Kuyruğa ekleme yapmazsanız sağdaki önizleme doğrudan yukarıdaki aktif dosyayı baz alır.</div>`;
+                return;
+            }
+            container.innerHTML = queue.map((item, i) => `
+                <div class="flex items-center justify-between bg-zinc-900 px-3 py-2 rounded-lg border border-zinc-800 text-xs">
+                    <div>
+                        <span class="text-amber-500 font-mono mr-2">[${i + 1}]</span>
+                        <span class="text-white font-medium">${item.name}</span>
+                        <span class="text-zinc-500 ml-2 text-[11px]">(${item.info})</span>
+                    </div>
+                    <button onclick="removeFromQueue(${i})" class="text-zinc-500 hover:text-red-400 px-2">Sil</button>
+                </div>
+            `).join('');
+        }
+
+        // Sağ Paneldeki Canlı .CMD Çıktısını Güncelle
+        function updateLiveScript() {
+            const preset = document.getElementById('preset').value;
+            const crf = document.getElementById('crf').value;
+            const jobs = queue.length > 0 ? queue : [{ command: buildSingleJobCommand() }];
+
+            document.getElementById('previewFilename').innerText = getTimestampFilename();
+            document.getElementById('badge-files').innerText = `${jobs.length} FILE(S)`;
+            document.getElementById('badge-preset').innerText = `P${preset}`;
+            document.getElementById('badge-crf').innerText = `CRF ${crf}`;
+
+            let bat = `@echo off\n`;
+            bat += `chcp 65001 > nul\n`;
+            bat += `mode con: lines=1000\n`;
+            bat += `echo SVT-AV1 Batch Process Started...\n`;
+            bat += `echo ---------------------------------------\n`;
+            bat += `set "T_START=%time%"\n`;
+            bat += `echo Baslangic Saati: %T_START%\n`;
+            bat += `echo ---------------------------------------\n\n`;
+
+            jobs.forEach((job, idx) => {
+                if (job.command) {
+                    bat += `REM --- ISLEM ${idx + 1} ---\n`;
+                    bat += `${job.command}\n`;
+                    bat += `timeout /t 5 /nobreak > nul\n`;
+                    bat += `echo ---------------------------------------\n\n`;
+                }
+            });
+
+            bat += `set "T_END=%time%"\n`;
+            bat += `echo Tum Islemler Tamamlandi!\n`;
+            bat += `echo Baslangic: %T_START%\n`;
+            bat += `echo Bitis    : %T_END%\n`;
+            bat += `echo ---------------------------------------\n`;
+            bat += `pause`;
+
+            document.getElementById('scriptPreview').textContent = bat;
+        }
+
+        // Kopyala & İndir (GGAAHHMMSS.cmd formatında)
+        function copyScript() {
+            const text = document.getElementById('scriptPreview').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('copyBtn');
+                const orig = btn.innerHTML;
+                btn.innerHTML = `<span class="text-amber-500 font-semibold">Kopyalandı!</span>`;
+                setTimeout(() => btn.innerHTML = orig, 1500);
+            });
+        }
+
+        function downloadBatFile() {
+            const text = document.getElementById('scriptPreview').textContent;
+            const fileName = getTimestampFilename();
+            document.getElementById('previewFilename').innerText = fileName;
+            
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+        }
+
+        // İlk Yükleme
+        loadPathsFromStorage();
+        toggleAdvancedStates();
+        toggleAudioStates();
+        updateLiveScript();
+    </script>
+</body>
+</html>
