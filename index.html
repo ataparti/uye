@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulut Veritabanlı Üye Yönetim Paneli</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --border: #cbd5e1; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #0f172a; }
+        
+        /* Arama ve Filtre Alanı */
+        .filter-bar { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        input, select { padding: 10px 14px; font-size: 15px; border: 1px solid var(--border); border-radius: 6px; outline: none; }
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+        /* Tablo Tasarımı */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+        th { background: #f1f5f9; font-weight: 600; color: #475569; }
+        tr:hover { background: #f8fafc; cursor: pointer; }
+
+        /* Etiketler / Badge */
+        .badge { display: inline-block; padding: 4px 8px; font-size: 12px; font-weight: 500; border-radius: 4px; }
+        .badge.aktif { background: #dcfce7; color: #166534; }
+        .badge.pasif { background: #fee2e2; color: #991b1b; }
+
+        /* Detay Modal */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 24px; border-radius: 8px; width: 100%; max-width: 500px; position: relative; }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 20px; cursor: pointer; color: #64748b; }
+        .detail-row { margin-bottom: 10px; }
+        .detail-row strong { display: inline-block; width: 120px; color: #64748b; }
+        
+        .loading { text-align: center; color: #64748b; padding: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Bulut Veritabanlı Üye Yönetim Paneli</h2>
+        <p style="color: #64748b; font-size: 14px;">Veriler doğrudan JSONBin.io bulut veritabanından çekilmektedir.</p>
+
+        <!-- Arama ve Filtreleme Araçları -->
+        <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="Ad, soyad, şehir veya meslek ara..." onkeyup="filtrele()">
+            <select id="sehirFilter" onchange="filtrele()">
+                <option value="">Tüm Şehirler</option>
+                <option value="Ankara">Ankara</option>
+                <option value="İstanbul">İstanbul</option>
+                <option value="İzmir">İzmir</option>
+            </select>
+            <select id="durumFilter" onchange="filtrele()">
+                <option value="">Tüm Durumlar</option>
+                <option value="Aktif">Aktif</option>
+                <option value="Pasif">Pasif</option>
+            </select>
+        </div>
+
+        <!-- Üye Tablosu -->
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ad Soyad</th>
+                        <th>Şehir</th>
+                        <th>Meslek</th>
+                        <th>Kayıt Tarihi</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody id="uyeTablosu">
+                    <tr><td colspan="5" class="loading">Veriler buluttan yükleniyor...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Detay Görüntüleme Modalı -->
+    <div id="detayModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="modalKapat()">&times;</span>
+            <h3 id="modalAd">Üye Detayları</h3>
+            <div class="detail-row"><strong>Telefon:</strong> <span id="modalTelefon"></span></div>
+            <div class="detail-row"><strong>E-posta:</strong> <span id="modalEposta"></span></div>
+            <div class="detail-row"><strong>Şehir:</strong> <span id="modalSehir"></span></div>
+            <div class="detail-row"><strong>Meslek:</strong> <span id="modalMeslek"></span></div>
+            <div class="detail-row"><strong>Notlar:</strong> <span id="modalNot"></span></div>
+        </div>
+    </div>
+
+    <script>
+        // Kendi JSONBin bilgilerinizle burayı güncelleyin:
+        const BIN_ID = '6afdbb0aac6210605a91ed57';
+        const API_KEY = '$2a$10$.8KHMb55.oiyYEpxDTddwexWgMM09tidhGfKwbmnZ6ah4M/0oewWe';
+        const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+        let uyelerDizisi = []; // Buluttan gelen verileri tutacağımız ana dizi
+
+        // 1. Verileri JSONBin'den Okuma (GET)
+        async function verileriGetir() {
+            try {
+                const response = await fetch(URL, {
+                    headers: { 'X-Master-Key': API_KEY }
+                });
+                const data = await response.json();
+                
+                // JSONBin içindeki "uyeler" anahtarını alıyoruz
+                uyelerDizisi = data.record.uyeler || [];
+                tabloyuGoster(uyelerDizisi);
+            } catch (error) {
+                console.error('Veri çekme hatası:', error);
+                document.getElementById('uyeTablosu').innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Veriler yüklenirken bir hata oluştu.</td></tr>';
+            }
+        }
+
+        // Tabloyu Ekrana Basma Fonksiyonu
+        function tabloyuGoster(liste) {
+            const tbody = document.getElementById('uyeTablosu');
+            tbody.innerHTML = '';
+
+            if (liste.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Aranan kriterlere uygun üye bulunamadı.</td></tr>';
+                return;
+            }
+
+            liste.forEach(uye => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => detayGoster(uye);
+                tr.innerHTML = `
+                    <td><strong>${uye.ad}</strong></td>
+                    <td>${uye.sehir}</td>
+                    <td>${uye.meslek}</td>
+                    <td>${uye.tarih}</td>
+                    <td><span class="badge ${uye.durum.toLowerCase()}">${uye.durum}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Anlık Arama ve Filtreleme Mantığı
+        function filtrele() {
+            const aramaMetni = document.getElementById('searchInput').value.toLowerCase();
+            const secilenSehir = document.getElementById('sehirFilter').value;
+            const secilenDurum = document.getElementById('durumFilter').value;
+
+            const filtrelenmis = uyelerDizisi.filter(uye => {
+                const aramaKriteriUyuyor = 
+                    uye.ad.toLowerCase().includes(aramaMetni) || 
+                    uye.meslek.toLowerCase().includes(aramaMetni) || 
+                    uye.sehir.toLowerCase().includes(aramaMetni);
+
+                const sehirUyuyor = secilenSehir === "" || uye.sehir === secilenSehir;
+                const durumUyuyor = secilenDurum === "" || uye.durum === secilenDurum;
+
+                return aramaKriteriUyuyor && sehirUyuyor && durumUyuyor;
+            });
+
+            tabloyuGoster(filtrelenmis);
+        }
+
+        // Detay Modalını Açma
+        function detayGoster(uye) {
+            document.getElementById('modalAd').textContent = uye.ad;
+            document.getElementById('modalTelefon').textContent = uye.telefon;
+            document.getElementById('modalEposta').textContent = uye.eposta;
+            document.getElementById('modalSehir').textContent = uye.sehir;
+            document.getElementById('modalMeslek').textContent = uye.meslek;
+            document.getElementById('modalNot').textContent = uye.not;
+            document.getElementById('detayModal').style.display = 'flex';
+        }
+
+        // Modal Kapatma
+        function modalKapat() {
+            document.getElementById('detayModal').style.display = 'none';
+        }
+
+        // Sayfa ilk açıldığında verileri buluttan çek
+        verileriGetir();
+    </script>
+</body>
+</html>
