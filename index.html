@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rol ve İl Tabanlı Üye Yönetim Paneli</title>
+    <title>Rol, İl ve İlçe Tabanlı Üye Yönetim Paneli</title>
     <style>
         :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f8fafc; --text: #1e293b; --border: #cbd5e1; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
@@ -35,6 +35,7 @@
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px; }
         .field-group { display: flex; flex-direction: column; gap: 4px; }
         .field-group label { font-size: 12px; font-weight: 600; color: #475569; }
+        .field-hint { font-size: 11px; color: #64748b; }
         input, select { padding: 10px 12px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; outline: none; background: white; }
         input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
         input[readonly] { background: #e2e8f0; color: #475569; cursor: not-allowed; font-weight: 600; }
@@ -46,7 +47,7 @@
         .btn-success { background: var(--success); }
         .btn-secondary { background: #64748b; }
 
-        .filter-bar { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .filter-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
 
         .table-responsive { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
@@ -99,7 +100,7 @@
         <div class="tabs" id="adminTabs" style="display: none;">
             <button type="button" class="tab-btn active" id="tabBtnUyeler" onclick="sekmeDegistir('uyeler')">Üye İşlemleri</button>
             <button type="button" class="tab-btn" id="tabBtnAlanlar" onclick="sekmeDegistir('alanlar')">Alan Başlıkları</button>
-            <button type="button" class="tab-btn" id="tabBtnKullanicilar" onclick="sekmeDegistir('kullanicilar')">Kullanıcı ve İl Yetkileri</button>
+            <button type="button" class="tab-btn" id="tabBtnKullanicilar" onclick="sekmeDegistir('kullanicilar')">Kullanıcı ve Bölge Yetkileri</button>
         </div>
 
         <!-- SEKME 1: ÜYE İŞLEMLERİ -->
@@ -114,6 +115,9 @@
                 <input type="text" id="searchInput" placeholder="Tüm alanlarda ara..." onkeyup="filtrele()">
                 <select id="ilFilter" onchange="filtrele()">
                     <option value="">Tüm İller</option>
+                </select>
+                <select id="ilceFilter" onchange="filtrele()">
+                    <option value="">Tüm İlçeler</option>
                 </select>
                 <select id="durumFilter" onchange="filtrele()">
                     <option value="">Tüm Durumlar</option>
@@ -176,22 +180,27 @@
             </div>
         </div>
 
-        <!-- SEKME 3: KULLANICI VE İL YETKİLERİ (SADECE ADMIN) -->
+        <!-- SEKME 3: KULLANICI, İL VE İLÇE YETKİLERİ (SADECE ADMIN) -->
         <div id="panelKullanicilar" class="tab-panel">
             <div class="form-section">
-                <h3>Yeni İl Kullanıcısı Ekle</h3>
+                <h3>Yeni Bölge Kullanıcısı Ekle</h3>
                 <div class="form-grid">
                     <div class="field-group">
                         <label>Kullanıcı Adı *</label>
-                        <input type="text" id="yeniKadi" placeholder="Örn: bursa_sorumlu">
+                        <input type="text" id="yeniKadi" placeholder="Örn: cankaya_sorumlu">
                     </div>
                     <div class="field-group">
                         <label>Parola *</label>
                         <input type="text" id="yeniParola" placeholder="Parola belirleyin">
                     </div>
                     <div class="field-group">
-                        <label>Yetkili Olduğu Tek İl *</label>
-                        <input type="text" id="yeniKullaniciIl" placeholder="Örn: Bursa">
+                        <label>Yetkili İl *</label>
+                        <input type="text" id="yeniKullaniciIl" placeholder="Örn: Ankara">
+                    </div>
+                    <div class="field-group">
+                        <label>Yetkili İlçe (Opsiyonel)</label>
+                        <input type="text" id="yeniKullaniciIlce" placeholder="Örn: Çankaya">
+                        <span class="field-hint">Boş bırakılırsa ilin tüm ilçelerine yetki verilir.</span>
                     </div>
                 </div>
                 <button id="kullaniciEkleBtn" class="btn-success" onclick="kullaniciEkle()">Kullanıcıyı Kaydet</button>
@@ -205,6 +214,7 @@
                             <th>Kullanıcı Adı</th>
                             <th>Rol</th>
                             <th>Yetkili İl</th>
+                            <th>Yetkili İlçe</th>
                             <th>Parola</th>
                             <th>İşlem</th>
                         </tr>
@@ -240,6 +250,22 @@
         let aktifKullanici = null;
         let duzenlenenUyeId = null;
 
+        function trNorm(val) {
+            return String(val || '').trim().toLocaleLowerCase('tr-TR');
+        }
+
+        function ilceKisitliMi(kullanici = aktifKullanici) {
+            if (!kullanici || kullanici.rol === 'admin') return false;
+            const ilce = (kullanici.ilce || '').trim();
+            return ilce !== '' && ilce !== '*';
+        }
+
+        function yetkiOzetiOlustur(k) {
+            if (k.rol === 'admin') return `Kullanıcı: ${k.kadi} | Yetki: Tam Yönetici (Tüm İller ve İlçeler)`;
+            if (ilceKisitliMi(k)) return `Kullanıcı: ${k.kadi} | Yetki: ${k.il} / ${k.ilce} (Sadece Bu İlçe)`;
+            return `Kullanıcı: ${k.kadi} | Yetki: ${k.il} (Tüm İlçeler)`;
+        }
+
         window.onload = async function() {
             const kayitliOturum = sessionStorage.getItem("aktifKullanici");
             if (kayitliOturum) {
@@ -257,6 +283,21 @@
                 if (!Array.isArray(tumVeriler.alanlar)) tumVeriler.alanlar = [];
                 if (!Array.isArray(tumVeriler.kullanicilar)) tumVeriler.kullanicilar = [];
                 if (!Array.isArray(tumVeriler.uyeler)) tumVeriler.uyeler = [];
+
+                // Temel alanların (ad, il, ilce) her zaman şemada bulunmasını sağla
+                const zorunluAlanlar = [
+                    { key: 'ad', label: 'Ad Soyad', type: 'text', showInTable: true, locked: true },
+                    { key: 'il', label: 'İl', type: 'text', showInTable: true, locked: true },
+                    { key: 'ilce', label: 'İlçe', type: 'text', showInTable: true, locked: true }
+                ];
+                zorunluAlanlar.slice().reverse().forEach(za => {
+                    const mevcut = tumVeriler.alanlar.find(a => a.key === za.key);
+                    if (!mevcut) {
+                        tumVeriler.alanlar.unshift(za);
+                    } else {
+                        mevcut.locked = true;
+                    }
+                });
             } catch (error) {
                 console.error('Veri çekme hatası:', error);
                 alert('Veritabanına bağlanırken hata oluştu!');
@@ -274,6 +315,13 @@
 
         async function verileriYenile() {
             await verileriCek();
+            if (aktifKullanici && aktifKullanici.rol !== 'admin') {
+                const guncelK = tumVeriler.kullanicilar.find(k => k.kadi === aktifKullanici.kadi);
+                if (guncelK) {
+                    aktifKullanici = guncelK;
+                    sessionStorage.setItem("aktifKullanici", JSON.stringify(guncelK));
+                }
+            }
             paneliHazirla();
         }
 
@@ -330,19 +378,28 @@
 
             const yetkiSpan = document.getElementById('aktifYetkiBilgisi');
             const ilFilter = document.getElementById('ilFilter');
+            const ilceFilter = document.getElementById('ilceFilter');
             const adminTabs = document.getElementById('adminTabs');
 
+            yetkiSpan.textContent = yetkiOzetiOlustur(aktifKullanici);
+
             if (aktifKullanici.rol === 'admin') {
-                yetkiSpan.textContent = `Kullanıcı: ${aktifKullanici.kadi} | Yetki: Tam Yönetici (Tüm İller)`;
                 ilFilter.style.display = 'block';
+                ilceFilter.style.display = 'block';
                 adminTabs.style.display = 'flex';
                 ilFiltresiniDoldur();
+                ilceFiltresiniDoldur();
                 alanlariListele();
                 kullanicilariListele();
             } else {
-                yetkiSpan.textContent = `Kullanıcı: ${aktifKullanici.kadi} | Yetkili İl: ${aktifKullanici.il}`;
                 ilFilter.style.display = 'none';
                 adminTabs.style.display = 'none';
+                if (ilceKisitliMi(aktifKullanici)) {
+                    ilceFilter.style.display = 'none'; // Zaten tek ilçeye kilitli
+                } else {
+                    ilceFilter.style.display = 'block'; // Kendi ilindeki ilçeleri filtreleyebilir
+                    ilceFiltresiniDoldur();
+                }
                 sekmeDegistir('uyeler');
             }
 
@@ -361,7 +418,8 @@
                 div.className = 'field-group';
 
                 const label = document.createElement('label');
-                label.textContent = alan.label + (alan.key === 'ad' || alan.key === 'il' ? ' *' : '');
+                const zorunluMu = alan.key === 'ad' || alan.key === 'il' || (alan.key === 'ilce' && ilceKisitliMi(aktifKullanici));
+                label.textContent = alan.label + (zorunluMu ? ' *' : '');
 
                 const input = document.createElement('input');
                 input.type = alan.type || 'text';
@@ -370,6 +428,11 @@
 
                 if (alan.key === 'il' && aktifKullanici.rol !== 'admin') {
                     input.value = aktifKullanici.il;
+                    input.readOnly = true;
+                }
+
+                if (alan.key === 'ilce' && ilceKisitliMi(aktifKullanici)) {
+                    input.value = aktifKullanici.ilce;
                     input.readOnly = true;
                 }
 
@@ -405,7 +468,7 @@
         function ilFiltresiniDoldur() {
             const ilFilter = document.getElementById('ilFilter');
             const mevcutSecim = ilFilter.value;
-            const iller = [...new Set(tumVeriler.uyeler.map(u => u.il).filter(Boolean))].sort();
+            const iller = [...new Set(tumVeriler.uyeler.map(u => u.il).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
             ilFilter.innerHTML = '<option value="">Tüm İller</option>';
             iller.forEach(il => {
                 ilFilter.innerHTML += `<option value="${il}">${il}</option>`;
@@ -413,30 +476,60 @@
             if (iller.includes(mevcutSecim)) ilFilter.value = mevcutSecim;
         }
 
-        function yetkiliUyeleriGetir() {
-            if (aktifKullanici.rol === 'admin') {
-                return tumVeriler.uyeler;
+        function ilceFiltresiniDoldur() {
+            const ilceFilter = document.getElementById('ilceFilter');
+            const mevcutSecim = ilceFilter.value;
+            const secilenIl = aktifKullanici.rol === 'admin' ? document.getElementById('ilFilter').value : aktifKullanici.il;
+
+            const kaynakUyeler = secilenIl
+                ? tumVeriler.uyeler.filter(u => trNorm(u.il) === trNorm(secilenIl))
+                : tumVeriler.uyeler;
+
+            const ilceler = [...new Set(kaynakUyeler.map(u => u.ilce).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
+            ilceFilter.innerHTML = '<option value="">Tüm İlçeler</option>';
+            ilceler.forEach(ilce => {
+                ilceFilter.innerHTML += `<option value="${ilce}">${ilce}</option>`;
+            });
+            if (ilceler.includes(mevcutSecim)) ilceFilter.value = mevcutSecim;
+        }
+
+        function uyeYetkiliMi(uye, kullanici = aktifKullanici) {
+            if (!kullanici) return false;
+            if (kullanici.rol === 'admin') return true;
+            if (trNorm(uye.il) !== trNorm(kullanici.il)) return false;
+            if (ilceKisitliMi(kullanici)) {
+                return trNorm(uye.ilce) === trNorm(kullanici.ilce);
             }
-            return tumVeriler.uyeler.filter(u => (u.il || '').toLocaleLowerCase('tr-TR') === aktifKullanici.il.toLocaleLowerCase('tr-TR'));
+            return true;
+        }
+
+        function yetkiliUyeleriGetir() {
+            return tumVeriler.uyeler.filter(u => uyeYetkiliMi(u, aktifKullanici));
         }
 
         function filtrele() {
-            const arama = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
+            if (aktifKullanici.rol === 'admin') {
+                ilceFiltresiniDoldur();
+            }
+
+            const arama = trNorm(document.getElementById('searchInput').value);
             const secilenIl = aktifKullanici.rol === 'admin' ? document.getElementById('ilFilter').value : aktifKullanici.il;
+            const secilenIlce = ilceKisitliMi(aktifKullanici) ? aktifKullanici.ilce : document.getElementById('ilceFilter').value;
             const secilenDurum = document.getElementById('durumFilter').value;
 
             const bazListe = yetkiliUyeleriGetir();
 
             const filtrelenmis = bazListe.filter(uye => {
                 const metinUyuyor = arama === '' || tumVeriler.alanlar.some(alan => {
-                    const deger = String(uye[alan.key] || '').toLocaleLowerCase('tr-TR');
+                    const deger = trNorm(uye[alan.key]);
                     return deger.includes(arama);
                 });
 
-                const ilUyuyor = secilenIl === '' || (uye.il || '').toLocaleLowerCase('tr-TR') === secilenIl.toLocaleLowerCase('tr-TR');
+                const ilUyuyor = secilenIl === '' || trNorm(uye.il) === trNorm(secilenIl);
+                const ilceUyuyor = secilenIlce === '' || trNorm(uye.ilce) === trNorm(secilenIlce);
                 const durumUyuyor = secilenDurum === '' || uye.durum === secilenDurum;
 
-                return metinUyuyor && ilUyuyor && durumUyuyor;
+                return metinUyuyor && ilUyuyor && ilceUyuyor && durumUyuyor;
             });
 
             tabloyuGoster(filtrelenmis);
@@ -493,6 +586,9 @@
 
             if (aktifKullanici.rol !== 'admin') {
                 yeniUye.il = aktifKullanici.il;
+                if (ilceKisitliMi(aktifKullanici)) {
+                    yeniUye.ilce = aktifKullanici.ilce;
+                }
             } else if (!yeniUye.il) {
                 alert('Lütfen İl alanını doldurun!');
                 btn.disabled = false;
@@ -506,12 +602,17 @@
                 const ok = await bulutaKaydet();
                 if (ok) {
                     tumVeriler.alanlar.forEach(alan => {
-                        if (!(alan.key === 'il' && aktifKullanici.rol !== 'admin')) {
+                        const kilitliIl = alan.key === 'il' && aktifKullanici.rol !== 'admin';
+                        const kilitliIlce = alan.key === 'ilce' && ilceKisitliMi(aktifKullanici);
+                        if (!kilitliIl && !kilitliIlce) {
                             const el = document.getElementById(`field_${alan.key}`);
                             if (el) el.value = '';
                         }
                     });
-                    if (aktifKullanici.rol === 'admin') ilFiltresiniDoldur();
+                    if (aktifKullanici.rol === 'admin') {
+                        ilFiltresiniDoldur();
+                        ilceFiltresiniDoldur();
+                    }
                     filtrele();
                     alert('Üye kaydı buluta eklendi!');
                 } else {
@@ -529,8 +630,8 @@
         }
 
         function detayVeDuzenleAc(uye) {
-            if (aktifKullanici.rol !== 'admin' && (uye.il || '').toLocaleLowerCase('tr-TR') !== aktifKullanici.il.toLocaleLowerCase('tr-TR')) {
-                alert('Bu ildeki kayda erişim yetkiniz yok.');
+            if (!uyeYetkiliMi(uye, aktifKullanici)) {
+                alert('Bu bölge kaydına erişim yetkiniz yok.');
                 return;
             }
 
@@ -554,6 +655,11 @@
 
                 if (alan.key === 'il' && aktifKullanici.rol !== 'admin') {
                     input.value = aktifKullanici.il;
+                    input.readOnly = true;
+                }
+
+                if (alan.key === 'ilce' && ilceKisitliMi(aktifKullanici)) {
+                    input.value = aktifKullanici.ilce;
                     input.readOnly = true;
                 }
 
@@ -589,7 +695,7 @@
             if (index === -1) return;
 
             const mevcutUye = tumVeriler.uyeler[index];
-            if (aktifKullanici.rol !== 'admin' && (mevcutUye.il || '').toLocaleLowerCase('tr-TR') !== aktifKullanici.il.toLocaleLowerCase('tr-TR')) {
+            if (!uyeYetkiliMi(mevcutUye, aktifKullanici)) {
                 alert('Yetkisiz işlem!');
                 return;
             }
@@ -610,6 +716,9 @@
 
             if (aktifKullanici.rol !== 'admin') {
                 guncelUye.il = aktifKullanici.il;
+                if (ilceKisitliMi(aktifKullanici)) {
+                    guncelUye.ilce = aktifKullanici.ilce;
+                }
             } else if (!guncelUye.il) {
                 alert('İl alanı boş bırakılamaz!');
                 return;
@@ -624,7 +733,10 @@
             try {
                 const ok = await bulutaKaydet();
                 if (ok) {
-                    if (aktifKullanici.rol === 'admin') ilFiltresiniDoldur();
+                    if (aktifKullanici.rol === 'admin') {
+                        ilFiltresiniDoldur();
+                        ilceFiltresiniDoldur();
+                    }
                     filtrele();
                     modalKapat();
                     alert('Üye bilgileri güncellendi.');
@@ -647,7 +759,7 @@
             if (index === -1) return;
 
             const mevcutUye = tumVeriler.uyeler[index];
-            if (aktifKullanici.rol !== 'admin' && (mevcutUye.il || '').toLocaleLowerCase('tr-TR') !== aktifKullanici.il.toLocaleLowerCase('tr-TR')) {
+            if (!uyeYetkiliMi(mevcutUye, aktifKullanici)) {
                 alert('Yetkisiz işlem!');
                 return;
             }
@@ -666,7 +778,10 @@
             try {
                 const ok = await bulutaKaydet();
                 if (ok) {
-                    if (aktifKullanici.rol === 'admin') ilFiltresiniDoldur();
+                    if (aktifKullanici.rol === 'admin') {
+                        ilFiltresiniDoldur();
+                        ilceFiltresiniDoldur();
+                    }
                     filtrele();
                     modalKapat();
                     alert('Üye kaydı silindi.');
@@ -703,7 +818,7 @@
             tbody.innerHTML = '';
 
             tumVeriler.alanlar.forEach((alan, idx) => {
-                const kilitli = alan.locked || alan.key === 'ad' || alan.key === 'il';
+                const kilitli = alan.locked || ['ad', 'il', 'ilce'].includes(alan.key);
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>${alan.label}</strong></td>
@@ -795,7 +910,7 @@
         async function alanSil(idx) {
             if (aktifKullanici?.rol !== 'admin') return;
             const alan = tumVeriler.alanlar[idx];
-            if (!alan || alan.locked || alan.key === 'ad' || alan.key === 'il') return;
+            if (!alan || alan.locked || ['ad', 'il', 'ilce'].includes(alan.key)) return;
 
             if (!confirm(`"${alan.label}" alan başlığını silmek istediğinize emin misiniz?`)) return;
 
@@ -820,7 +935,7 @@
             }
         }
 
-        // --- YÖNETİCİ: KULLANICI VE İL YETKİLERİ ---
+        // --- YÖNETİCİ: KULLANICI, İL VE İLÇE YETKİLERİ ---
         function kullanicilariListele() {
             if (aktifKullanici?.rol !== 'admin') return;
             const tbody = document.getElementById('kullanicilarTablosu');
@@ -831,11 +946,17 @@
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>${k.kadi}</strong></td>
-                    <td><span class="badge ${k.rol === 'admin' ? 'admin' : 'user'}">${k.rol === 'admin' ? 'Yönetici' : 'İl Sorumlusu'}</span></td>
+                    <td><span class="badge ${k.rol === 'admin' ? 'admin' : 'user'}">${k.rol === 'admin' ? 'Yönetici' : 'Bölge Sorumlusu'}</span></td>
                     <td>
                         ${k.rol === 'admin'
                             ? 'Tüm İller (*)'
-                            : `<input type="text" value="${k.il || ''}" style="width:130px; padding:6px 8px;" onchange="kullaniciIlDegistir(${idx}, this.value)">`
+                            : `<input type="text" value="${k.il || ''}" style="width:120px; padding:6px 8px;" onchange="kullaniciYetkiDegistir(${idx}, 'il', this.value)">`
+                        }
+                    </td>
+                    <td>
+                        ${k.rol === 'admin'
+                            ? 'Tüm İlçeler (*)'
+                            : `<input type="text" value="${k.ilce || ''}" placeholder="Tüm İlçeler" style="width:130px; padding:6px 8px;" onchange="kullaniciYetkiDegistir(${idx}, 'ilce', this.value)">`
                         }
                     </td>
                     <td><code>${k.parola}</code></td>
@@ -855,24 +976,26 @@
             const kadiInput = document.getElementById('yeniKadi');
             const parolaInput = document.getElementById('yeniParola');
             const ilInput = document.getElementById('yeniKullaniciIl');
+            const ilceInput = document.getElementById('yeniKullaniciIlce');
 
             const kadi = kadiInput.value.trim();
             const parola = parolaInput.value.trim();
             const il = ilInput.value.trim();
+            const ilce = ilceInput.value.trim();
 
             if (!kadi || !parola || !il) {
                 alert('Kullanıcı adı, parola ve yetkili il alanlarını doldurun!');
                 return;
             }
 
-            if (tumVeriler.kullanicilar.some(k => k.kadi.toLowerCase() === kadi.toLowerCase())) {
+            if (tumVeriler.kullanicilar.some(k => trNorm(k.kadi) === trNorm(kadi))) {
                 alert('Bu kullanıcı adı zaten kayıtlı!');
                 return;
             }
 
             const btn = document.getElementById('kullaniciEkleBtn');
             btn.disabled = true;
-            tumVeriler.kullanicilar.push({ kadi, parola, rol: 'user', il });
+            tumVeriler.kullanicilar.push({ kadi, parola, rol: 'user', il, ilce });
 
             try {
                 const ok = await bulutaKaydet();
@@ -880,8 +1003,10 @@
                     kadiInput.value = '';
                     parolaInput.value = '';
                     ilInput.value = '';
+                    ilceInput.value = '';
                     kullanicilariListele();
-                    alert(`"${kadi}" kullanıcısı "${il}" ili yetkisiyle eklendi.`);
+                    const bolgeMetni = ilce ? `${il} / ${ilce}` : `${il} (Tüm İlçeler)`;
+                    alert(`"${kadi}" kullanıcısı "${bolgeMetni}" yetkisiyle eklendi.`);
                 } else {
                     tumVeriler.kullanicilar.pop();
                     alert('Kullanıcı eklenirken hata oluştu!');
@@ -894,27 +1019,27 @@
             }
         }
 
-        async function kullaniciIlDegistir(idx, yeniIl) {
+        async function kullaniciYetkiDegistir(idx, alanAdi, yeniDeger) {
             if (aktifKullanici?.rol !== 'admin') return;
-            const ilTemiz = yeniIl.trim();
-            if (!ilTemiz) {
+            const temiz = yeniDeger.trim();
+            if (alanAdi === 'il' && !temiz) {
                 alert('Yetkili il boş olamaz!');
                 kullanicilariListele();
                 return;
             }
-            const eskiIl = tumVeriler.kullanicilar[idx].il;
-            tumVeriler.kullanicilar[idx].il = ilTemiz;
+            const eskiDeger = tumVeriler.kullanicilar[idx][alanAdi];
+            tumVeriler.kullanicilar[idx][alanAdi] = temiz;
             try {
                 const ok = await bulutaKaydet();
                 if (ok) {
                     kullanicilariListele();
                 } else {
-                    tumVeriler.kullanicilar[idx].il = eskiIl;
+                    tumVeriler.kullanicilar[idx][alanAdi] = eskiDeger;
                     kullanicilariListele();
-                    alert('İl güncellenemedi!');
+                    alert('Yetki güncellenemedi!');
                 }
             } catch (e) {
-                tumVeriler.kullanicilar[idx].il = eskiIl;
+                tumVeriler.kullanicilar[idx][alanAdi] = eskiDeger;
                 kullanicilariListele();
                 alert('Bağlantı hatası!');
             }
