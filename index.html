@@ -38,7 +38,7 @@
         .field-hint { font-size: 11px; color: #64748b; }
         input, select { padding: 10px 12px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; outline: none; background: white; }
         input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-        input[readonly] { background: #e2e8f0; color: #475569; cursor: not-allowed; font-weight: 600; }
+        input[readonly], select:disabled { background: #e2e8f0; color: #475569; cursor: not-allowed; font-weight: 600; }
         button { background: var(--primary); color: white; border: none; padding: 10px 18px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: 500; }
         button:hover { opacity: 0.92; }
         button:disabled { opacity: 0.6; cursor: not-allowed; }
@@ -67,7 +67,7 @@
         .close-btn { position: absolute; top: 15px; right: 20px; font-size: 22px; cursor: pointer; color: #64748b; }
         .modal-form { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
         .modal-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0; flex-wrap: wrap; }
-        .modal-actions-right { display: flex; gap: 8px; }
+        .modal-actions-right { display: flex; gap: 8px; margin-left: auto; }
         .checkbox-inline { display: flex; align-items: center; gap: 8px; padding-top: 6px; font-size: 14px; }
     </style>
 </head>
@@ -254,16 +254,20 @@
             return String(val || '').trim().toLocaleLowerCase('tr-TR');
         }
 
+        function adminMi(kullanici = aktifKullanici) {
+            return kullanici?.rol === 'admin';
+        }
+
         function ilceKisitliMi(kullanici = aktifKullanici) {
-            if (!kullanici || kullanici.rol === 'admin') return false;
+            if (!kullanici || adminMi(kullanici)) return false;
             const ilce = (kullanici.ilce || '').trim();
             return ilce !== '' && ilce !== '*';
         }
 
         function yetkiOzetiOlustur(k) {
-            if (k.rol === 'admin') return `Kullanıcı: ${k.kadi} | Yetki: Tam Yönetici (Tüm İller ve İlçeler)`;
-            if (ilceKisitliMi(k)) return `Kullanıcı: ${k.kadi} | Yetki: ${k.il} / ${k.ilce} (Sadece Bu İlçe)`;
-            return `Kullanıcı: ${k.kadi} | Yetki: ${k.il} (Tüm İlçeler)`;
+            if (adminMi(k)) return `Kullanıcı: ${k.kadi} | Yetki: Tam Yönetici (Tüm İller ve İlçeler)`;
+            if (ilceKisitliMi(k)) return `Kullanıcı: ${k.kadi} | Yetki: ${k.il} / ${k.ilce} (Ekleme/Düzenleme - Onay Bekler)`;
+            return `Kullanıcı: ${k.kadi} | Yetki: ${k.il} Tüm İlçeler (Ekleme/Düzenleme - Onay Bekler)`;
         }
 
         window.onload = async function() {
@@ -284,7 +288,6 @@
                 if (!Array.isArray(tumVeriler.kullanicilar)) tumVeriler.kullanicilar = [];
                 if (!Array.isArray(tumVeriler.uyeler)) tumVeriler.uyeler = [];
 
-                // Temel alanların (ad, il, ilce) her zaman şemada bulunmasını sağla
                 const zorunluAlanlar = [
                     { key: 'ad', label: 'Ad Soyad', type: 'text', showInTable: true, locked: true },
                     { key: 'il', label: 'İl', type: 'text', showInTable: true, locked: true },
@@ -315,7 +318,7 @@
 
         async function verileriYenile() {
             await verileriCek();
-            if (aktifKullanici && aktifKullanici.rol !== 'admin') {
+            if (aktifKullanici && !adminMi(aktifKullanici)) {
                 const guncelK = tumVeriler.kullanicilar.find(k => k.kadi === aktifKullanici.kadi);
                 if (guncelK) {
                     aktifKullanici = guncelK;
@@ -356,7 +359,7 @@
         }
 
         function sekmeDegistir(sekme) {
-            if (sekme !== 'uyeler' && aktifKullanici.rol !== 'admin') return;
+            if (sekme !== 'uyeler' && !adminMi()) return;
 
             ['uyeler', 'alanlar', 'kullanicilar'].forEach(s => {
                 const cap = s.charAt(0).toUpperCase() + s.slice(1);
@@ -383,7 +386,7 @@
 
             yetkiSpan.textContent = yetkiOzetiOlustur(aktifKullanici);
 
-            if (aktifKullanici.rol === 'admin') {
+            if (adminMi()) {
                 ilFilter.style.display = 'block';
                 ilceFilter.style.display = 'block';
                 adminTabs.style.display = 'flex';
@@ -394,10 +397,10 @@
             } else {
                 ilFilter.style.display = 'none';
                 adminTabs.style.display = 'none';
-                if (ilceKisitliMi(aktifKullanici)) {
-                    ilceFilter.style.display = 'none'; // Zaten tek ilçeye kilitli
+                if (ilceKisitliMi()) {
+                    ilceFilter.style.display = 'none';
                 } else {
-                    ilceFilter.style.display = 'block'; // Kendi ilindeki ilçeleri filtreleyebilir
+                    ilceFilter.style.display = 'block';
                     ilceFiltresiniDoldur();
                 }
                 sekmeDegistir('uyeler');
@@ -418,7 +421,7 @@
                 div.className = 'field-group';
 
                 const label = document.createElement('label');
-                const zorunluMu = alan.key === 'ad' || alan.key === 'il' || (alan.key === 'ilce' && ilceKisitliMi(aktifKullanici));
+                const zorunluMu = alan.key === 'ad' || alan.key === 'il' || (alan.key === 'ilce' && ilceKisitliMi());
                 label.textContent = alan.label + (zorunluMu ? ' *' : '');
 
                 const input = document.createElement('input');
@@ -426,12 +429,12 @@
                 input.id = `field_${alan.key}`;
                 input.placeholder = alan.label;
 
-                if (alan.key === 'il' && aktifKullanici.rol !== 'admin') {
+                if (alan.key === 'il' && !adminMi()) {
                     input.value = aktifKullanici.il;
                     input.readOnly = true;
                 }
 
-                if (alan.key === 'ilce' && ilceKisitliMi(aktifKullanici)) {
+                if (alan.key === 'ilce' && ilceKisitliMi()) {
                     input.value = aktifKullanici.ilce;
                     input.readOnly = true;
                 }
@@ -441,15 +444,25 @@
                 container.appendChild(div);
             });
 
+            // Durum alanı: Normal kullanıcı için her zaman Pasif ve kilitli (onay mekanizması)
             const durumDiv = document.createElement('div');
             durumDiv.className = 'field-group';
-            durumDiv.innerHTML = `
-                <label>Durum</label>
-                <select id="field_durum">
-                    <option value="Aktif">Aktif</option>
-                    <option value="Pasif">Pasif</option>
-                </select>
-            `;
+            if (adminMi()) {
+                durumDiv.innerHTML = `
+                    <label>Durum</label>
+                    <select id="field_durum">
+                        <option value="Aktif">Aktif</option>
+                        <option value="Pasif">Pasif</option>
+                    </select>
+                `;
+            } else {
+                durumDiv.innerHTML = `
+                    <label>Durum (Yönetici Onayı Bekler)</label>
+                    <select id="field_durum" disabled>
+                        <option value="Pasif" selected>Pasif</option>
+                    </select>
+                `;
+            }
             container.appendChild(durumDiv);
         }
 
@@ -479,7 +492,7 @@
         function ilceFiltresiniDoldur() {
             const ilceFilter = document.getElementById('ilceFilter');
             const mevcutSecim = ilceFilter.value;
-            const secilenIl = aktifKullanici.rol === 'admin' ? document.getElementById('ilFilter').value : aktifKullanici.il;
+            const secilenIl = adminMi() ? document.getElementById('ilFilter').value : aktifKullanici.il;
 
             const kaynakUyeler = secilenIl
                 ? tumVeriler.uyeler.filter(u => trNorm(u.il) === trNorm(secilenIl))
@@ -495,7 +508,7 @@
 
         function uyeYetkiliMi(uye, kullanici = aktifKullanici) {
             if (!kullanici) return false;
-            if (kullanici.rol === 'admin') return true;
+            if (adminMi(kullanici)) return true;
             if (trNorm(uye.il) !== trNorm(kullanici.il)) return false;
             if (ilceKisitliMi(kullanici)) {
                 return trNorm(uye.ilce) === trNorm(kullanici.ilce);
@@ -508,13 +521,13 @@
         }
 
         function filtrele() {
-            if (aktifKullanici.rol === 'admin') {
+            if (adminMi()) {
                 ilceFiltresiniDoldur();
             }
 
             const arama = trNorm(document.getElementById('searchInput').value);
-            const secilenIl = aktifKullanici.rol === 'admin' ? document.getElementById('ilFilter').value : aktifKullanici.il;
-            const secilenIlce = ilceKisitliMi(aktifKullanici) ? aktifKullanici.ilce : document.getElementById('ilceFilter').value;
+            const secilenIl = adminMi() ? document.getElementById('ilFilter').value : aktifKullanici.il;
+            const secilenIlce = ilceKisitliMi() ? aktifKullanici.ilce : document.getElementById('ilceFilter').value;
             const secilenDurum = document.getElementById('durumFilter').value;
 
             const bazListe = yetkiliUyeleriGetir();
@@ -527,7 +540,7 @@
 
                 const ilUyuyor = secilenIl === '' || trNorm(uye.il) === trNorm(secilenIl);
                 const ilceUyuyor = secilenIlce === '' || trNorm(uye.ilce) === trNorm(secilenIlce);
-                const durumUyuyor = secilenDurum === '' || uye.durum === secilenDurum;
+                const durumUyuyor = secilenDurum === '' || (uye.durum || 'Pasif') === secilenDurum;
 
                 return metinUyuyor && ilUyuyor && ilceUyuyor && durumUyuyor;
             });
@@ -554,7 +567,7 @@
                     const val = uye[alan.key] || '-';
                     cells += idx === 0 ? `<td><strong>${val}</strong></td>` : `<td>${val}</td>`;
                 });
-                const durum = uye.durum || 'Aktif';
+                const durum = uye.durum || 'Pasif';
                 cells += `<td><span class="badge ${durum.toLowerCase()}">${durum}</span></td>`;
                 
                 tr.innerHTML = cells;
@@ -573,10 +586,14 @@
             btn.disabled = true;
             btn.textContent = "Kaydediliyor...";
 
+            // Normal kullanıcı eklediğinde durum her zaman "Pasif" olur
+            const durumDegeri = adminMi() ? document.getElementById('field_durum').value : 'Pasif';
+
             const yeniUye = {
                 id: Date.now(),
-                durum: document.getElementById('field_durum').value,
-                tarih: new Date().toISOString().split('T')[0]
+                durum: durumDegeri,
+                tarih: new Date().toISOString().split('T')[0],
+                ekleyen: aktifKullanici.kadi
             };
 
             tumVeriler.alanlar.forEach(alan => {
@@ -584,9 +601,10 @@
                 yeniUye[alan.key] = el ? el.value.trim() : '';
             });
 
-            if (aktifKullanici.rol !== 'admin') {
+            if (!adminMi()) {
                 yeniUye.il = aktifKullanici.il;
-                if (ilceKisitliMi(aktifKullanici)) {
+                yeniUye.durum = 'Pasif';
+                if (ilceKisitliMi()) {
                     yeniUye.ilce = aktifKullanici.ilce;
                 }
             } else if (!yeniUye.il) {
@@ -602,19 +620,19 @@
                 const ok = await bulutaKaydet();
                 if (ok) {
                     tumVeriler.alanlar.forEach(alan => {
-                        const kilitliIl = alan.key === 'il' && aktifKullanici.rol !== 'admin';
-                        const kilitliIlce = alan.key === 'ilce' && ilceKisitliMi(aktifKullanici);
+                        const kilitliIl = alan.key === 'il' && !adminMi();
+                        const kilitliIlce = alan.key === 'ilce' && ilceKisitliMi();
                         if (!kilitliIl && !kilitliIlce) {
                             const el = document.getElementById(`field_${alan.key}`);
                             if (el) el.value = '';
                         }
                     });
-                    if (aktifKullanici.rol === 'admin') {
+                    if (adminMi()) {
                         ilFiltresiniDoldur();
                         ilceFiltresiniDoldur();
                     }
                     filtrele();
-                    alert('Üye kaydı buluta eklendi!');
+                    alert(adminMi() ? 'Üye kaydı buluta eklendi!' : 'Üye kaydı "Pasif" durumda (onay bekleyerek) eklendi.');
                 } else {
                     tumVeriler.uyeler.pop();
                     alert('Kayıt sırasında bulut hatası oluştu!');
@@ -638,6 +656,9 @@
             duzenlenenUyeId = uye.id;
             document.getElementById('modalBaslik').textContent = `${uye.ad || 'Üye'} - Düzenle`;
 
+            // Silme butonu yalnızca yöneticiye görünür
+            document.getElementById('silBtn').style.display = adminMi() ? 'inline-block' : 'none';
+
             const formDiv = document.getElementById('modalFormAlanlari');
             formDiv.innerHTML = '';
 
@@ -653,12 +674,12 @@
                 input.id = `edit_${alan.key}`;
                 input.value = uye[alan.key] || '';
 
-                if (alan.key === 'il' && aktifKullanici.rol !== 'admin') {
+                if (alan.key === 'il' && !adminMi()) {
                     input.value = aktifKullanici.il;
                     input.readOnly = true;
                 }
 
-                if (alan.key === 'ilce' && ilceKisitliMi(aktifKullanici)) {
+                if (alan.key === 'ilce' && ilceKisitliMi()) {
                     input.value = aktifKullanici.ilce;
                     input.readOnly = true;
                 }
@@ -668,15 +689,26 @@
                 formDiv.appendChild(group);
             });
 
+            const mevcutDurum = uye.durum || 'Pasif';
             const durumGroup = document.createElement('div');
             durumGroup.className = 'field-group';
-            durumGroup.innerHTML = `
-                <label>Durum</label>
-                <select id="edit_durum">
-                    <option value="Aktif" ${(uye.durum || 'Aktif') === 'Aktif' ? 'selected' : ''}>Aktif</option>
-                    <option value="Pasif" ${uye.durum === 'Pasif' ? 'selected' : ''}>Pasif</option>
-                </select>
-            `;
+            if (adminMi()) {
+                durumGroup.innerHTML = `
+                    <label>Durum (Yönetici Onayı)</label>
+                    <select id="edit_durum">
+                        <option value="Aktif" ${mevcutDurum === 'Aktif' ? 'selected' : ''}>Aktif</option>
+                        <option value="Pasif" ${mevcutDurum === 'Pasif' ? 'selected' : ''}>Pasif</option>
+                    </select>
+                `;
+            } else {
+                durumGroup.innerHTML = `
+                    <label>Durum (Sadece Yönetici Aktif Edebilir)</label>
+                    <select id="edit_durum" disabled>
+                        <option value="Aktif" ${mevcutDurum === 'Aktif' ? 'selected' : ''}>Aktif</option>
+                        <option value="Pasif" ${mevcutDurum === 'Pasif' ? 'selected' : ''}>Pasif</option>
+                    </select>
+                `;
+            }
             formDiv.appendChild(durumGroup);
 
             const tarihGroup = document.createElement('div');
@@ -707,16 +739,18 @@
             }
 
             const yedek = { ...mevcutUye };
-            const guncelUye = { ...mevcutUye, durum: document.getElementById('edit_durum').value };
+            const yeniDurum = adminMi() ? document.getElementById('edit_durum').value : (mevcutUye.durum || 'Pasif');
+            const guncelUye = { ...mevcutUye, durum: yeniDurum };
 
             tumVeriler.alanlar.forEach(alan => {
                 const el = document.getElementById(`edit_${alan.key}`);
                 if (el) guncelUye[alan.key] = el.value.trim();
             });
 
-            if (aktifKullanici.rol !== 'admin') {
+            if (!adminMi()) {
                 guncelUye.il = aktifKullanici.il;
-                if (ilceKisitliMi(aktifKullanici)) {
+                guncelUye.durum = mevcutUye.durum || 'Pasif';
+                if (ilceKisitliMi()) {
                     guncelUye.ilce = aktifKullanici.ilce;
                 }
             } else if (!guncelUye.il) {
@@ -733,7 +767,7 @@
             try {
                 const ok = await bulutaKaydet();
                 if (ok) {
-                    if (aktifKullanici.rol === 'admin') {
+                    if (adminMi()) {
                         ilFiltresiniDoldur();
                         ilceFiltresiniDoldur();
                     }
@@ -755,15 +789,16 @@
         }
 
         async function uyeSil() {
+            // Sadece yönetici silebilir
+            if (!adminMi()) {
+                alert('Üye silme yetkisi yalnızca yöneticidedir.');
+                return;
+            }
+
             const index = tumVeriler.uyeler.findIndex(u => u.id === duzenlenenUyeId);
             if (index === -1) return;
 
             const mevcutUye = tumVeriler.uyeler[index];
-            if (!uyeYetkiliMi(mevcutUye, aktifKullanici)) {
-                alert('Yetkisiz işlem!');
-                return;
-            }
-
             if (!confirm(`"${mevcutUye.ad || 'Bu üye'}" kaydını kalıcı olarak silmek istediğinize emin misiniz?`)) {
                 return;
             }
@@ -778,10 +813,8 @@
             try {
                 const ok = await bulutaKaydet();
                 if (ok) {
-                    if (aktifKullanici.rol === 'admin') {
-                        ilFiltresiniDoldur();
-                        ilceFiltresiniDoldur();
-                    }
+                    ilFiltresiniDoldur();
+                    ilceFiltresiniDoldur();
                     filtrele();
                     modalKapat();
                     alert('Üye kaydı silindi.');
@@ -813,7 +846,7 @@
         }
 
         function alanlariListele() {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const tbody = document.getElementById('alanlarTablosu');
             tbody.innerHTML = '';
 
@@ -840,7 +873,7 @@
         }
 
         async function alanEkle() {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const labelInput = document.getElementById('yeniAlanLabel');
             const label = labelInput.value.trim();
             if (!label) {
@@ -886,7 +919,7 @@
         }
 
         async function alanGorunurlukDegistir(idx, checked) {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const onceki = tumVeriler.alanlar[idx].showInTable;
             tumVeriler.alanlar[idx].showInTable = checked;
             try {
@@ -908,7 +941,7 @@
         }
 
         async function alanSil(idx) {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const alan = tumVeriler.alanlar[idx];
             if (!alan || alan.locked || ['ad', 'il', 'ilce'].includes(alan.key)) return;
 
@@ -937,7 +970,7 @@
 
         // --- YÖNETİCİ: KULLANICI, İL VE İLÇE YETKİLERİ ---
         function kullanicilariListele() {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const tbody = document.getElementById('kullanicilarTablosu');
             tbody.innerHTML = '';
 
@@ -972,7 +1005,7 @@
         }
 
         async function kullaniciEkle() {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const kadiInput = document.getElementById('yeniKadi');
             const parolaInput = document.getElementById('yeniParola');
             const ilInput = document.getElementById('yeniKullaniciIl');
@@ -1020,7 +1053,7 @@
         }
 
         async function kullaniciYetkiDegistir(idx, alanAdi, yeniDeger) {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const temiz = yeniDeger.trim();
             if (alanAdi === 'il' && !temiz) {
                 alert('Yetkili il boş olamaz!');
@@ -1046,7 +1079,7 @@
         }
 
         async function kullaniciSil(idx) {
-            if (aktifKullanici?.rol !== 'admin') return;
+            if (!adminMi()) return;
             const hedef = tumVeriler.kullanicilar[idx];
             if (!hedef || hedef.rol === 'admin' || hedef.kadi === aktifKullanici.kadi) return;
 
