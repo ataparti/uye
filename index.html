@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rol ve İl Tabanlı Üye Yönetim Paneli</title>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --border: #cbd5e1; }
+        :root { --primary: #2563eb; --danger: #dc2626; --success: #16a34a; --bg: #f8fafc; --text: #1e293b; --border: #cbd5e1; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
         
         /* Giriş Ekranı */
@@ -31,7 +31,11 @@
         input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
         input[readonly] { background: #e2e8f0; color: #475569; cursor: not-allowed; font-weight: 600; }
         button { background: var(--primary); color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: 500; }
-        button:hover { background: #1d4ed8; }
+        button:hover { opacity: 0.92; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-danger { background: var(--danger); }
+        .btn-success { background: var(--success); }
+        .btn-secondary { background: #64748b; }
 
         .filter-bar { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 
@@ -45,11 +49,13 @@
         .badge.aktif { background: #dcfce7; color: #166534; }
         .badge.pasif { background: #fee2e2; color: #991b1b; }
 
+        /* Düzenleme / Detay Modal */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
-        .modal-content { background: white; padding: 24px; border-radius: 8px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
+        .modal-content { background: white; padding: 24px; border-radius: 8px; width: 100%; max-width: 540px; position: relative; max-height: 90vh; overflow-y: auto; }
         .close-btn { position: absolute; top: 15px; right: 20px; font-size: 22px; cursor: pointer; color: #64748b; }
-        .detail-row { margin-bottom: 10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 6px; }
-        .detail-row strong { display: inline-block; width: 140px; color: #64748b; }
+        .modal-form { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
+        .modal-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0; flex-wrap: wrap; }
+        .modal-actions-right { display: flex; gap: 8px; }
     </style>
 </head>
 <body>
@@ -71,14 +77,14 @@
                 <h2 style="margin-bottom: 4px;">Üye Yönetim Paneli</h2>
                 <span id="aktifYetkiBilgisi" class="role-badge"></span>
             </div>
-            <button onclick="cikisYap()" style="background: #dc2626; padding: 8px 14px; font-size: 13px;">Güvenli Çıkış</button>
+            <button onclick="cikisYap()" class="btn-danger" style="padding: 8px 14px; font-size: 13px;">Güvenli Çıkış</button>
         </div>
 
         <!-- Dinamik Üye Ekleme Formu -->
         <div class="form-section">
             <h3>Yeni Üye Kaydı Ekle</h3>
             <div class="form-grid" id="dinamikFormAlanlari"></div>
-            <button onclick="uyeEkle()">Üyeyi Buluta Kaydet</button>
+            <button id="kaydetBtn" onclick="uyeEkle()">Üyeyi Buluta Kaydet</button>
         </div>
 
         <!-- Arama ve Filtreleme -->
@@ -103,12 +109,19 @@
         </div>
     </div>
 
-    <!-- Detay Modal -->
+    <!-- Üye Düzenleme / Silme Modalı -->
     <div id="detayModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="modalKapat()">&times;</span>
-            <h3 id="modalBaslik">Üye Detayları</h3>
-            <div id="modalIcerik"></div>
+            <h3 id="modalBaslik">Üye Kaydını Düzenle</h3>
+            <div class="modal-form" id="modalFormAlanlari"></div>
+            <div class="modal-actions">
+                <button type="button" id="silBtn" class="btn-danger" onclick="uyeSil()">Kaydı Sil</button>
+                <div class="modal-actions-right">
+                    <button type="button" class="btn-secondary" onclick="modalKapat()">Vazgeç</button>
+                    <button type="button" id="guncelleBtn" class="btn-success" onclick="uyeGuncelle()">Değişiklikleri Kaydet</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -119,6 +132,7 @@
 
         let tumVeriler = { alanlar: [], kullanicilar: [], uyeler: [] };
         let aktifKullanici = null;
+        let duzenlenenUyeId = null;
 
         window.onload = async function() {
             const kayitliOturum = sessionStorage.getItem("aktifKullanici");
@@ -138,6 +152,15 @@
                 console.error('Veri çekme hatası:', error);
                 alert('Veritabanına bağlanırken hata oluştu!');
             }
+        }
+
+        async function bulutaKaydet() {
+            const response = await fetch(URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                body: JSON.stringify(tumVeriler)
+            });
+            return response.ok;
         }
 
         async function girisYap() {
@@ -170,7 +193,6 @@
             location.reload();
         }
 
-        // Kullanıcının rolüne ve iline göre arayüzü hazırla
         function paneliHazirla() {
             document.getElementById('loginContainer').style.display = 'none';
             document.getElementById('appContainer').style.display = 'block';
@@ -184,7 +206,7 @@
                 ilFiltresiniDoldur();
             } else {
                 yetkiSpan.textContent = `Kullanıcı: ${aktifKullanici.kadi} | Yetkili İl: ${aktifKullanici.il}`;
-                ilFilter.style.display = 'none'; // İl sorumlusu başka il seçemez
+                ilFilter.style.display = 'none';
             }
 
             formuOlustur();
@@ -192,7 +214,6 @@
             filtrele();
         }
 
-        // JSON'daki "alanlar" dizisine göre formu dinamik oluştur
         function formuOlustur() {
             const container = document.getElementById('dinamikFormAlanlari');
             container.innerHTML = '';
@@ -209,7 +230,6 @@
                 input.id = `field_${alan.key}`;
                 input.placeholder = alan.label;
 
-                // İl alanı kısıtlaması
                 if (alan.key === 'il' && aktifKullanici.rol !== 'admin') {
                     input.value = aktifKullanici.il;
                     input.readOnly = true;
@@ -220,7 +240,6 @@
                 container.appendChild(div);
             });
 
-            // Durum seçimi standart alan
             const durumDiv = document.createElement('div');
             durumDiv.className = 'field-group';
             durumDiv.innerHTML = `
@@ -247,14 +266,15 @@
 
         function ilFiltresiniDoldur() {
             const ilFilter = document.getElementById('ilFilter');
+            const mevcutSecim = ilFilter.value;
             const iller = [...new Set((tumVeriler.uyeler || []).map(u => u.il).filter(Boolean))].sort();
             ilFilter.innerHTML = '<option value="">Tüm İller</option>';
             iller.forEach(il => {
                 ilFilter.innerHTML += `<option value="${il}">${il}</option>`;
             });
+            if (iller.includes(mevcutSecim)) ilFilter.value = mevcutSecim;
         }
 
-        // Kullanıcının yetkili olduğu üyeleri döndürür (Sıkı il izolasyonu)
         function yetkiliUyeleriGetir() {
             const tumUyeler = tumVeriler.uyeler || [];
             if (aktifKullanici.rol === 'admin') {
@@ -297,7 +317,7 @@
 
             liste.forEach(uye => {
                 const tr = document.createElement('tr');
-                tr.onclick = () => detayGoster(uye);
+                tr.onclick = () => detayVeDuzenleAc(uye);
                 
                 let cells = '';
                 gorunurAlanlar.forEach((alan, idx) => {
@@ -319,6 +339,10 @@
                 return;
             }
 
+            const btn = document.getElementById('kaydetBtn');
+            btn.disabled = true;
+            btn.textContent = "Kaydediliyor...";
+
             const yeniUye = {
                 id: Date.now(),
                 durum: document.getElementById('field_durum').value,
@@ -330,11 +354,12 @@
                 yeniUye[alan.key] = el ? el.value.trim() : '';
             });
 
-            // Güvenlik kilidi: İl kullanıcısı sadece kendi iline kayıt açabilir
             if (aktifKullanici.rol !== 'admin') {
                 yeniUye.il = aktifKullanici.il;
             } else if (!yeniUye.il) {
                 alert('Lütfen İl alanını doldurun!');
+                btn.disabled = false;
+                btn.textContent = "Üyeyi Buluta Kaydet";
                 return;
             }
 
@@ -342,13 +367,8 @@
             tumVeriler.uyeler.push(yeniUye);
 
             try {
-                const response = await fetch(URL, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-                    body: JSON.stringify(tumVeriler)
-                });
-
-                if (response.ok) {
+                const ok = await bulutaKaydet();
+                if (ok) {
                     tumVeriler.alanlar.forEach(alan => {
                         if (!(alan.key === 'il' && aktifKullanici.rol !== 'admin')) {
                             const el = document.getElementById(`field_${alan.key}`);
@@ -359,31 +379,178 @@
                     filtrele();
                     alert('Üye kaydı buluta eklendi!');
                 } else {
+                    tumVeriler.uyeler.pop();
                     alert('Kayıt sırasında bulut hatası oluştu!');
                 }
             } catch (error) {
+                tumVeriler.uyeler.pop();
                 console.error('Kayıt hatası:', error);
                 alert('Bağlantı hatası!');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Üyeyi Buluta Kaydet";
             }
         }
 
-        function detayGoster(uye) {
-            document.getElementById('modalBaslik').textContent = uye.ad || 'Üye Detayları';
-            const icerik = document.getElementById('modalIcerik');
-            let html = '';
+        function detayVeDuzenleAc(uye) {
+            if (aktifKullanici.rol !== 'admin' && (uye.il || '').toLocaleLowerCase('tr-TR') !== aktifKullanici.il.toLocaleLowerCase('tr-TR')) {
+                alert('Bu ildeki kayda erişim yetkiniz yok.');
+                return;
+            }
+
+            duzenlenenUyeId = uye.id;
+            document.getElementById('modalBaslik').textContent = `${uye.ad || 'Üye'} - Düzenle`;
+
+            const formDiv = document.getElementById('modalFormAlanlari');
+            formDiv.innerHTML = '';
 
             tumVeriler.alanlar.forEach(alan => {
-                html += `<div class="detail-row"><strong>${alan.label}:</strong> <span>${uye[alan.key] || '-'}</span></div>`;
-            });
-            html += `<div class="detail-row"><strong>Durum:</strong> <span>${uye.durum || '-'}</span></div>`;
-            html += `<div class="detail-row"><strong>Kayıt Tarihi:</strong> <span>${uye.tarih || '-'}</span></div>`;
+                const group = document.createElement('div');
+                group.className = 'field-group';
 
-            icerik.innerHTML = html;
+                const label = document.createElement('label');
+                label.textContent = alan.label;
+
+                const input = document.createElement('input');
+                input.type = alan.type || 'text';
+                input.id = `edit_${alan.key}`;
+                input.value = uye[alan.key] || '';
+
+                if (alan.key === 'il' && aktifKullanici.rol !== 'admin') {
+                    input.value = aktifKullanici.il;
+                    input.readOnly = true;
+                }
+
+                group.appendChild(label);
+                group.appendChild(input);
+                formDiv.appendChild(group);
+            });
+
+            const durumGroup = document.createElement('div');
+            durumGroup.className = 'field-group';
+            durumGroup.innerHTML = `
+                <label>Durum</label>
+                <select id="edit_durum">
+                    <option value="Aktif" ${(uye.durum || 'Aktif') === 'Aktif' ? 'selected' : ''}>Aktif</option>
+                    <option value="Pasif" ${uye.durum === 'Pasif' ? 'selected' : ''}>Pasif</option>
+                </select>
+            `;
+            formDiv.appendChild(durumGroup);
+
+            const tarihGroup = document.createElement('div');
+            tarihGroup.className = 'field-group';
+            tarihGroup.innerHTML = `
+                <label>Kayıt Tarihi</label>
+                <input type="text" value="${uye.tarih || '-'}" readonly>
+            `;
+            formDiv.appendChild(tarihGroup);
+
             document.getElementById('detayModal').style.display = 'flex';
+        }
+
+        async function uyeGuncelle() {
+            const index = (tumVeriler.uyeler || []).findIndex(u => u.id === duzenlenenUyeId);
+            if (index === -1) return;
+
+            const mevcutUye = tumVeriler.uyeler[index];
+            if (aktifKullanici.rol !== 'admin' && (mevcutUye.il || '').toLocaleLowerCase('tr-TR') !== aktifKullanici.il.toLocaleLowerCase('tr-TR')) {
+                alert('Yetkisiz işlem!');
+                return;
+            }
+
+            const adVal = (document.getElementById('edit_ad')?.value || '').trim();
+            if (!adVal) {
+                alert('Ad Soyad boş bırakılamaz!');
+                return;
+            }
+
+            const yedek = { ...mevcutUye };
+            const guncelUye = { ...mevcutUye, durum: document.getElementById('edit_durum').value };
+
+            tumVeriler.alanlar.forEach(alan => {
+                const el = document.getElementById(`edit_${alan.key}`);
+                if (el) guncelUye[alan.key] = el.value.trim();
+            });
+
+            if (aktifKullanici.rol !== 'admin') {
+                guncelUye.il = aktifKullanici.il;
+            } else if (!guncelUye.il) {
+                alert('İl alanı boş bırakılamaz!');
+                return;
+            }
+
+            const btn = document.getElementById('guncelleBtn');
+            btn.disabled = true;
+            btn.textContent = "Kaydediliyor...";
+
+            tumVeriler.uyeler[index] = guncelUye;
+
+            try {
+                const ok = await bulutaKaydet();
+                if (ok) {
+                    if (aktifKullanici.rol === 'admin') ilFiltresiniDoldur();
+                    filtrele();
+                    modalKapat();
+                    alert('Üye bilgileri güncellendi.');
+                } else {
+                    tumVeriler.uyeler[index] = yedek;
+                    alert('Güncelleme sırasında bulut hatası oluştu!');
+                }
+            } catch (error) {
+                tumVeriler.uyeler[index] = yedek;
+                console.error('Güncelleme hatası:', error);
+                alert('Bağlantı hatası!');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Değişiklikleri Kaydet";
+            }
+        }
+
+        async function uyeSil() {
+            const index = (tumVeriler.uyeler || []).findIndex(u => u.id === duzenlenenUyeId);
+            if (index === -1) return;
+
+            const mevcutUye = tumVeriler.uyeler[index];
+            if (aktifKullanici.rol !== 'admin' && (mevcutUye.il || '').toLocaleLowerCase('tr-TR') !== aktifKullanici.il.toLocaleLowerCase('tr-TR')) {
+                alert('Yetkisiz işlem!');
+                return;
+            }
+
+            if (!confirm(`"${mevcutUye.ad || 'Bu üye'}" kaydını kalıcı olarak silmek istediğinize emin misiniz?`)) {
+                return;
+            }
+
+            const btn = document.getElementById('silBtn');
+            btn.disabled = true;
+            btn.textContent = "Siliniyor...";
+
+            const yedekListe = [...tumVeriler.uyeler];
+            tumVeriler.uyeler.splice(index, 1);
+
+            try {
+                const ok = await bulutaKaydet();
+                if (ok) {
+                    if (aktifKullanici.rol === 'admin') ilFiltresiniDoldur();
+                    filtrele();
+                    modalKapat();
+                    alert('Üye kaydı silindi.');
+                } else {
+                    tumVeriler.uyeler = yedekListe;
+                    alert('Silme sırasında bulut hatası oluştu!');
+                }
+            } catch (error) {
+                tumVeriler.uyeler = yedekListe;
+                console.error('Silme hatası:', error);
+                alert('Bağlantı hatası!');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Kaydı Sil";
+            }
         }
 
         function modalKapat() {
             document.getElementById('detayModal').style.display = 'none';
+            duzenlenenUyeId = null;
         }
     </script>
 </body>
