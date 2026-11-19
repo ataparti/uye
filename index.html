@@ -21,7 +21,7 @@
         #appContainer { display: none; max-width: 1200px; margin: 0 auto; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         h2, h3, h4 { margin-top: 0; color: #0f172a; }
         .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; }
-        .top-actions { display: flex; gap: 10px; align-items: center; }
+        .top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .role-badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
 
         /* Sekmeler */
@@ -46,11 +46,16 @@
         .btn-danger { background: var(--danger); }
         .btn-success { background: var(--success); }
         .btn-secondary { background: #64748b; }
+        .btn-outline { background: white; color: #1e293b; border: 1px solid var(--border); }
+        .btn-outline:hover { background: #f1f5f9; }
 
-        .filter-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .filter-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+        .list-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+        .list-count { font-size: 13px; font-weight: 600; color: #475569; }
+        .export-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
         .table-responsive { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; margin-top: 6px; }
         th, td { padding: 12px 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
         th { background: #f1f5f9; font-weight: 600; color: #475569; }
         #uyeTablosu tr:hover { background: #f8fafc; cursor: pointer; }
@@ -69,6 +74,15 @@
         .modal-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0; flex-wrap: wrap; }
         .modal-actions-right { display: flex; gap: 8px; margin-left: auto; }
         .checkbox-inline { display: flex; align-items: center; gap: 8px; padding-top: 6px; font-size: 14px; }
+
+        /* Yazdırma Stilleri */
+        @media print {
+            body { background: white; padding: 0; }
+            #appContainer { box-shadow: none; padding: 0; max-width: 100%; }
+            .top-actions, .tabs, .form-section, .filter-bar, .export-actions, .modal { display: none !important; }
+            .top-bar { border-bottom: 2px solid #0f172a; margin-bottom: 12px; }
+            th, td { padding: 8px 10px; font-size: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -124,6 +138,14 @@
                     <option value="Aktif">Aktif</option>
                     <option value="Pasif">Pasif</option>
                 </select>
+            </div>
+
+            <div class="list-toolbar">
+                <span id="kayitSayisiBilgi" class="list-count">Listelenen Kayıt: 0</span>
+                <div class="export-actions">
+                    <button type="button" class="btn-outline btn-sm" onclick="csvIndir()">CSV İndir</button>
+                    <button type="button" class="btn-outline btn-sm" onclick="listeyiYazdir()">Yazdır</button>
+                </div>
             </div>
 
             <div class="table-responsive">
@@ -249,6 +271,7 @@
         let tumVeriler = { alanlar: [], kullanicilar: [], uyeler: [] };
         let aktifKullanici = null;
         let duzenlenenUyeId = null;
+        let sonFiltrelenenUyeler = [];
 
         function trNorm(val) {
             return String(val || '').trim().toLocaleLowerCase('tr-TR');
@@ -444,7 +467,6 @@
                 container.appendChild(div);
             });
 
-            // Durum alanı: Normal kullanıcı için her zaman Pasif ve kilitli (onay mekanizması)
             const durumDiv = document.createElement('div');
             durumDiv.className = 'field-group';
             if (adminMi()) {
@@ -545,6 +567,8 @@
                 return metinUyuyor && ilUyuyor && ilceUyuyor && durumUyuyor;
             });
 
+            sonFiltrelenenUyeler = filtrelenmis;
+            document.getElementById('kayitSayisiBilgi').textContent = `Listelenen Kayıt: ${filtrelenmis.length}`;
             tabloyuGoster(filtrelenmis);
         }
 
@@ -575,6 +599,58 @@
             });
         }
 
+        // --- CSV DIŞA AKTARMA VE YAZDIRMA ---
+        function csvHucreTemizle(val) {
+            let s = String(val ?? '').replace(/\r?\n/g, ' ');
+            // Formül enjeksiyonuna karşı önlem
+            if (/^[=+\-@\t\r]/.test(s)) {
+                s = "'" + s;
+            }
+            if (/[;"']/.test(s)) {
+                s = '"' + s.replace(/"/g, '""') + '"';
+            }
+            return s;
+        }
+
+        function csvIndir() {
+            if (!sonFiltrelenenUyeler.length) {
+                alert('İndirilecek kayıt bulunamadı.');
+                return;
+            }
+
+            const sutunlar = [
+                ...tumVeriler.alanlar.map(a => ({ key: a.key, label: a.label })),
+                { key: 'durum', label: 'Durum' },
+                { key: 'tarih', label: 'Kayıt Tarihi' }
+            ];
+
+            const satirlar = [];
+            satirlar.push(sutunlar.map(s => csvHucreTemizle(s.label)).join(';'));
+
+            sonFiltrelenenUyeler.forEach(uye => {
+                const hucreler = sutunlar.map(s => {
+                    if (s.key === 'durum') return csvHucreTemizle(uye.durum || 'Pasif');
+                    return csvHucreTemizle(uye[s.key] ?? '');
+                });
+                satirlar.push(hucreler.join(';'));
+            });
+
+            const csvMetin = '\uFEFF' + satirlar.join('\r\n');
+            const blob = new Blob([csvMetin], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const tarihStr = new Date().toISOString().split('T')[0];
+            link.href = URL.createObjectURL(blob);
+            link.download = `uyeler_${aktifKullanici.kadi}_${tarihStr}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        }
+
+        function listeyiYazdir() {
+            window.print();
+        }
+
         async function uyeEkle() {
             const adInput = document.getElementById('field_ad');
             if (!adInput || !adInput.value.trim()) {
@@ -586,7 +662,6 @@
             btn.disabled = true;
             btn.textContent = "Kaydediliyor...";
 
-            // Normal kullanıcı eklediğinde durum her zaman "Pasif" olur
             const durumDegeri = adminMi() ? document.getElementById('field_durum').value : 'Pasif';
 
             const yeniUye = {
@@ -655,8 +730,6 @@
 
             duzenlenenUyeId = uye.id;
             document.getElementById('modalBaslik').textContent = `${uye.ad || 'Üye'} - Düzenle`;
-
-            // Silme butonu yalnızca yöneticiye görünür
             document.getElementById('silBtn').style.display = adminMi() ? 'inline-block' : 'none';
 
             const formDiv = document.getElementById('modalFormAlanlari');
@@ -789,7 +862,6 @@
         }
 
         async function uyeSil() {
-            // Sadece yönetici silebilir
             if (!adminMi()) {
                 alert('Üye silme yetkisi yalnızca yöneticidedir.');
                 return;
