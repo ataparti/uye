@@ -73,7 +73,7 @@
         .modal-form { display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
         .modal-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0; flex-wrap: wrap; }
         .modal-actions-right { display: flex; gap: 8px; margin-left: auto; }
-        .checkbox-inline { display: flex; align-items: center; gap: 8px; padding-top: 6px; font-size: 14px; }
+        .checkbox-inline { display: flex; align-items: center; gap: 8px; padding-top: 4px; font-size: 13px; }
 
         /* Yazdırma Stilleri */
         @media print {
@@ -89,7 +89,6 @@
 
     <!-- 1. GİRİŞ EKRANI -->
     <div id="loginContainer">
-        <img src="aplogo.png" alt="image description">
         <h2>Sistem Girişi</h2>
         <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Kullanıcı adı ve parolanızı giriniz.</p>
         <input type="text" id="kullaniciAdi" class="login-input" placeholder="Kullanıcı Adı">
@@ -164,7 +163,7 @@
                 <div class="form-grid">
                     <div class="field-group">
                         <label>Başlık Adı *</label>
-                        <input type="text" id="yeniAlanLabel" placeholder="Örn: Kan Grubu, Mahalle">
+                        <input type="text" id="yeniAlanLabel" placeholder="Örn: Üye No, Kan Grubu">
                     </div>
                     <div class="field-group">
                         <label>Veri Tipi</label>
@@ -176,10 +175,14 @@
                         </select>
                     </div>
                     <div class="field-group">
-                        <label>Tablo Görünümü</label>
+                        <label>Görünüm ve Düzenleme Ayarları</label>
                         <label class="checkbox-inline">
                             <input type="checkbox" id="yeniAlanShowInTable" checked>
                             Tabloda sütun olarak göster
+                        </label>
+                        <label class="checkbox-inline">
+                            <input type="checkbox" id="yeniAlanReadOnlyForUser">
+                            Kullanıcı değiştiremez (Salt Okunur)
                         </label>
                     </div>
                 </div>
@@ -195,6 +198,7 @@
                             <th>Anahtar (Key)</th>
                             <th>Tip</th>
                             <th>Tabloda Göster</th>
+                            <th>Kullanıcı Değiştiremez</th>
                             <th>İşlem</th>
                         </tr>
                     </thead>
@@ -286,6 +290,14 @@
             if (!kullanici || adminMi(kullanici)) return false;
             const ilce = (kullanici.ilce || '').trim();
             return ilce !== '' && ilce !== '*';
+        }
+
+        // Kullanıcının değiştiremeyeceği alanları belirler
+        function alanKullaniciyaKilitliMi(alan) {
+            if (!alan || adminMi()) return false;
+            if (alan.key === 'il') return true;
+            if (alan.key === 'ilce' && ilceKisitliMi()) return true;
+            return Boolean(alan.readOnlyForUser);
         }
 
         function yetkiOzetiOlustur(k) {
@@ -444,9 +456,10 @@
                 const div = document.createElement('div');
                 div.className = 'field-group';
 
+                const kilitli = alanKullaniciyaKilitliMi(alan);
                 const label = document.createElement('label');
                 const zorunluMu = alan.key === 'ad' || alan.key === 'il' || (alan.key === 'ilce' && ilceKisitliMi());
-                label.textContent = alan.label + (zorunluMu ? ' *' : '');
+                label.textContent = alan.label + (zorunluMu ? ' *' : '') + (kilitli ? ' (Kilitli)' : '');
 
                 const input = document.createElement('input');
                 input.type = alan.type || 'text';
@@ -455,11 +468,11 @@
 
                 if (alan.key === 'il' && !adminMi()) {
                     input.value = aktifKullanici.il;
-                    input.readOnly = true;
                 }
-
                 if (alan.key === 'ilce' && ilceKisitliMi()) {
                     input.value = aktifKullanici.ilce;
+                }
+                if (kilitli) {
                     input.readOnly = true;
                 }
 
@@ -603,7 +616,6 @@
         // --- CSV DIŞA AKTARMA VE YAZDIRMA ---
         function csvHucreTemizle(val) {
             let s = String(val ?? '').replace(/\r?\n/g, ' ');
-            // Formül enjeksiyonuna karşı önlem
             if (/^[=+\-@\t\r]/.test(s)) {
                 s = "'" + s;
             }
@@ -696,9 +708,7 @@
                 const ok = await bulutaKaydet();
                 if (ok) {
                     tumVeriler.alanlar.forEach(alan => {
-                        const kilitliIl = alan.key === 'il' && !adminMi();
-                        const kilitliIlce = alan.key === 'ilce' && ilceKisitliMi();
-                        if (!kilitliIl && !kilitliIlce) {
+                        if (!alanKullaniciyaKilitliMi(alan)) {
                             const el = document.getElementById(`field_${alan.key}`);
                             if (el) el.value = '';
                         }
@@ -740,8 +750,9 @@
                 const group = document.createElement('div');
                 group.className = 'field-group';
 
+                const kilitli = alanKullaniciyaKilitliMi(alan);
                 const label = document.createElement('label');
-                label.textContent = alan.label;
+                label.textContent = alan.label + (kilitli ? ' (Kilitli)' : '');
 
                 const input = document.createElement('input');
                 input.type = alan.type || 'text';
@@ -750,11 +761,11 @@
 
                 if (alan.key === 'il' && !adminMi()) {
                     input.value = aktifKullanici.il;
-                    input.readOnly = true;
                 }
-
                 if (alan.key === 'ilce' && ilceKisitliMi()) {
                     input.value = aktifKullanici.ilce;
+                }
+                if (kilitli) {
                     input.readOnly = true;
                 }
 
@@ -817,8 +828,13 @@
             const guncelUye = { ...mevcutUye, durum: yeniDurum };
 
             tumVeriler.alanlar.forEach(alan => {
-                const el = document.getElementById(`edit_${alan.key}`);
-                if (el) guncelUye[alan.key] = el.value.trim();
+                if (alanKullaniciyaKilitliMi(alan)) {
+                    // Kilitli alanlarda mevcut kayıt değeri korunur
+                    guncelUye[alan.key] = mevcutUye[alan.key] ?? '';
+                } else {
+                    const el = document.getElementById(`edit_${alan.key}`);
+                    if (el) guncelUye[alan.key] = el.value.trim();
+                }
             });
 
             if (!adminMi()) {
@@ -925,14 +941,19 @@
 
             tumVeriler.alanlar.forEach((alan, idx) => {
                 const kilitli = alan.locked || ['ad', 'il', 'ilce'].includes(alan.key);
+                const saltOkunur = Boolean(alan.readOnlyForUser);
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>${alan.label}</strong></td>
                     <td><code>${alan.key}</code></td>
                     <td>${alan.type || 'text'}</td>
                     <td>
-                        <input type="checkbox" ${alan.showInTable ? 'checked' : ''} onchange="alanGorunurlukDegistir(${idx}, this.checked)">
+                        <input type="checkbox" ${alan.showInTable ? 'checked' : ''} onchange="alanAyariDegistir(${idx}, 'showInTable', this.checked)">
                         ${alan.showInTable ? 'Evet' : 'Hayır'}
+                    </td>
+                    <td>
+                        <input type="checkbox" ${saltOkunur ? 'checked' : ''} onchange="alanAyariDegistir(${idx}, 'readOnlyForUser', this.checked)">
+                        ${saltOkunur ? 'Kilitli' : 'Serbest'}
                     </td>
                     <td>
                         ${kilitli
@@ -963,7 +984,8 @@
                 key,
                 label,
                 type: document.getElementById('yeniAlanType').value,
-                showInTable: document.getElementById('yeniAlanShowInTable').checked
+                showInTable: document.getElementById('yeniAlanShowInTable').checked,
+                readOnlyForUser: document.getElementById('yeniAlanReadOnlyForUser').checked
             };
 
             const btn = document.getElementById('alanEkleBtn');
@@ -974,6 +996,7 @@
                 const ok = await bulutaKaydet();
                 if (ok) {
                     labelInput.value = '';
+                    document.getElementById('yeniAlanReadOnlyForUser').checked = false;
                     formuOlustur();
                     tabloBasliklariniOlustur();
                     alanlariListele();
@@ -991,23 +1014,24 @@
             }
         }
 
-        async function alanGorunurlukDegistir(idx, checked) {
+        async function alanAyariDegistir(idx, ayarAdi, checked) {
             if (!adminMi()) return;
-            const onceki = tumVeriler.alanlar[idx].showInTable;
-            tumVeriler.alanlar[idx].showInTable = checked;
+            const onceki = tumVeriler.alanlar[idx][ayarAdi];
+            tumVeriler.alanlar[idx][ayarAdi] = checked;
             try {
                 const ok = await bulutaKaydet();
                 if (ok) {
+                    formuOlustur();
                     tabloBasliklariniOlustur();
                     alanlariListele();
                     filtrele();
                 } else {
-                    tumVeriler.alanlar[idx].showInTable = onceki;
+                    tumVeriler.alanlar[idx][ayarAdi] = onceki;
                     alanlariListele();
-                    alert('Güncelleme başarısız!');
+                    alert('Ayar güncellenemedi!');
                 }
             } catch (e) {
-                tumVeriler.alanlar[idx].showInTable = onceki;
+                tumVeriler.alanlar[idx][ayarAdi] = onceki;
                 alanlariListele();
                 alert('Bağlantı hatası!');
             }
