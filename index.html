@@ -42,14 +42,15 @@
         button { background: var(--primary); color: white; border: none; padding: 10px 18px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: 500; }
         button:hover { opacity: 0.92; }
         button:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn-sm { padding: 6px 10px; font-size: 12px; }
         .btn-danger { background: var(--danger); }
         .btn-success { background: var(--success); }
         .btn-secondary { background: #64748b; }
         .btn-outline { background: white; color: #1e293b; border: 1px solid var(--border); }
         .btn-outline:hover { background: #f1f5f9; }
+        .order-btns { display: inline-flex; gap: 4px; margin-right: 8px; vertical-align: middle; }
 
-        .filter-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+        .filter-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 14px; }
         .list-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
         .list-count { font-size: 13px; font-weight: 600; color: #475569; }
         .export-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -138,6 +139,13 @@
                     <option value="Aktif">Aktif</option>
                     <option value="Pasif">Pasif</option>
                 </select>
+                <select id="siralamaSecimi" onchange="filtrele()">
+                    <option value="kayit_sirasi">Sırala: Kayıt Sırası</option>
+                    <option value="ad_asc">Sırala: Ad Soyad (A → Z)</option>
+                    <option value="ad_desc">Sırala: Ad Soyad (Z → A)</option>
+                    <option value="tarih_desc">Sırala: Tarih (Yeni → Eski)</option>
+                    <option value="tarih_asc">Sırala: Tarih (Eski → Yeni)</option>
+                </select>
             </div>
 
             <div class="list-toolbar">
@@ -163,14 +171,14 @@
                 <div class="form-grid">
                     <div class="field-group">
                         <label>Başlık Adı *</label>
-                        <input type="text" id="yeniAlanLabel" placeholder="Örn: Üye No, Kan Grubu">
+                        <input type="text" id="yeniAlanLabel" placeholder="Örn: Kayıt Tarihi, Üye No">
                     </div>
                     <div class="field-group">
                         <label>Veri Tipi</label>
                         <select id="yeniAlanType">
                             <option value="text">Metin</option>
-                            <option value="number">Sayı</option>
                             <option value="date">Tarih</option>
+                            <option value="number">Sayı</option>
                             <option value="tel">Telefon</option>
                         </select>
                     </div>
@@ -189,11 +197,12 @@
                 <button id="alanEkleBtn" class="btn-success" onclick="alanEkle()">Alan Başlığını Kaydet</button>
             </div>
 
-            <h4>Mevcut Alan Başlıkları</h4>
+            <h4>Mevcut Alan Başlıkları (Sırayı ↑ / ↓ ile düzenleyebilirsiniz)</h4>
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
+                            <th>Sıra</th>
                             <th>Başlık Adı</th>
                             <th>Anahtar (Key)</th>
                             <th>Tip</th>
@@ -292,7 +301,6 @@
             return ilce !== '' && ilce !== '*';
         }
 
-        // Kullanıcının değiştiremeyeceği alanları belirler
         function alanKullaniciyaKilitliMi(alan) {
             if (!alan || adminMi()) return false;
             if (alan.key === 'il') return true;
@@ -447,7 +455,7 @@
             filtrele();
         }
 
-        // --- ÜYE FORM, TABLO VE FİLTRE ---
+        // --- ÜYE FORM, TABLO, FİLTRE VE SIRALAMA ---
         function formuOlustur() {
             const container = document.getElementById('dinamikFormAlanlari');
             container.innerHTML = '';
@@ -556,6 +564,44 @@
             return tumVeriler.uyeler.filter(u => uyeYetkiliMi(u, aktifKullanici));
         }
 
+        function tarihAlanKeyBul() {
+            const dateAlan = tumVeriler.alanlar.find(a => a.type === 'date');
+            if (dateAlan) return dateAlan.key;
+            const tarihAlan = tumVeriler.alanlar.find(a => a.key === 'tarih' || a.key === 'kayit_tarihi');
+            return tarihAlan ? tarihAlan.key : 'tarih';
+        }
+
+        function tarihDegerineCevir(val) {
+            if (!val) return NaN;
+            const t = Date.parse(String(val).trim());
+            return Number.isNaN(t) ? NaN : t;
+        }
+
+        function listeyiSirala(liste, siralamaModu) {
+            if (siralamaModu === 'kayit_sirasi') return liste;
+
+            const kopya = [...liste];
+            if (siralamaModu === 'ad_asc' || siralamaModu === 'ad_desc') {
+                const yon = siralamaModu === 'ad_asc' ? 1 : -1;
+                return kopya.sort((a, b) => yon * String(a.ad || '').localeCompare(String(b.ad || ''), 'tr', { sensitivity: 'base' }));
+            }
+
+            if (siralamaModu === 'tarih_desc' || siralamaModu === 'tarih_asc') {
+                const yon = siralamaModu === 'tarih_desc' ? -1 : 1;
+                const tarihKey = tarihAlanKeyBul();
+                return kopya.sort((a, b) => {
+                    const ta = tarihDegerineCevir(a[tarihKey]);
+                    const tb = tarihDegerineCevir(b[tarihKey]);
+                    if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+                    if (Number.isNaN(ta)) return 1;
+                    if (Number.isNaN(tb)) return -1;
+                    return yon * (ta - tb);
+                });
+            }
+
+            return kopya;
+        }
+
         function filtrele() {
             if (adminMi()) {
                 ilceFiltresiniDoldur();
@@ -565,6 +611,7 @@
             const secilenIl = adminMi() ? document.getElementById('ilFilter').value : aktifKullanici.il;
             const secilenIlce = ilceKisitliMi() ? aktifKullanici.ilce : document.getElementById('ilceFilter').value;
             const secilenDurum = document.getElementById('durumFilter').value;
+            const siralamaModu = document.getElementById('siralamaSecimi').value;
 
             const bazListe = yetkiliUyeleriGetir();
 
@@ -581,9 +628,10 @@
                 return metinUyuyor && ilUyuyor && ilceUyuyor && durumUyuyor;
             });
 
-            sonFiltrelenenUyeler = filtrelenmis;
-            document.getElementById('kayitSayisiBilgi').textContent = `Listelenen Kayıt: ${filtrelenmis.length}`;
-            tabloyuGoster(filtrelenmis);
+            const siraliListe = listeyiSirala(filtrelenmis, siralamaModu);
+            sonFiltrelenenUyeler = siraliListe;
+            document.getElementById('kayitSayisiBilgi').textContent = `Listelenen Kayıt: ${siraliListe.length}`;
+            tabloyuGoster(siraliListe);
         }
 
         function tabloyuGoster(liste) {
@@ -633,8 +681,7 @@
 
             const sutunlar = [
                 ...tumVeriler.alanlar.map(a => ({ key: a.key, label: a.label })),
-                { key: 'durum', label: 'Durum' },
-                { key: 'tarih', label: 'Kayıt Tarihi' }
+                { key: 'durum', label: 'Durum' }
             ];
 
             const satirlar = [];
@@ -677,10 +724,10 @@
 
             const durumDegeri = adminMi() ? document.getElementById('field_durum').value : 'Pasif';
 
+            // Otomatik tarih atanmaz; tarih alanı tanımlanmışsa manuel girilir
             const yeniUye = {
                 id: Date.now(),
                 durum: durumDegeri,
-                tarih: new Date().toISOString().split('T')[0],
                 ekleyen: aktifKullanici.kadi
             };
 
@@ -796,14 +843,6 @@
             }
             formDiv.appendChild(durumGroup);
 
-            const tarihGroup = document.createElement('div');
-            tarihGroup.className = 'field-group';
-            tarihGroup.innerHTML = `
-                <label>Kayıt Tarihi</label>
-                <input type="text" value="${uye.tarih || '-'}" readonly>
-            `;
-            formDiv.appendChild(tarihGroup);
-
             document.getElementById('detayModal').style.display = 'flex';
         }
 
@@ -829,7 +868,6 @@
 
             tumVeriler.alanlar.forEach(alan => {
                 if (alanKullaniciyaKilitliMi(alan)) {
-                    // Kilitli alanlarda mevcut kayıt değeri korunur
                     guncelUye[alan.key] = mevcutUye[alan.key] ?? '';
                 } else {
                     const el = document.getElementById(`edit_${alan.key}`);
@@ -926,7 +964,7 @@
             duzenlenenUyeId = null;
         }
 
-        // --- YÖNETİCİ: DİNAMİK ALAN YÖNETİMİ ---
+        // --- YÖNETİCİ: DİNAMİK ALAN YÖNETİMİ VE SIRALAMA ---
         function keyUret(label) {
             const map = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u' };
             let s = label.toLowerCase().replace(/[çğıöşü]/g, ch => map[ch] || ch);
@@ -944,6 +982,13 @@
                 const saltOkunur = Boolean(alan.readOnlyForUser);
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                    <td>
+                        <div class="order-btns">
+                            <button type="button" class="btn-outline btn-sm" ${idx === 0 ? 'disabled' : ''} onclick="alanTasi(${idx}, -1)" title="Yukarı Taşı">↑</button>
+                            <button type="button" class="btn-outline btn-sm" ${idx === tumVeriler.alanlar.length - 1 ? 'disabled' : ''} onclick="alanTasi(${idx}, 1)" title="Aşağı Taşı">↓</button>
+                        </div>
+                        <strong>${idx + 1}</strong>
+                    </td>
                     <td><strong>${alan.label}</strong></td>
                     <td><code>${alan.key}</code></td>
                     <td>${alan.type || 'text'}</td>
@@ -964,6 +1009,41 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        async function alanTasi(idx, yon) {
+            if (!adminMi()) return;
+            const hedefIdx = idx + yon;
+            if (hedefIdx < 0 || hedefIdx >= tumVeriler.alanlar.length) return;
+
+            const yedek = [...tumVeriler.alanlar];
+            const gecici = tumVeriler.alanlar[idx];
+            tumVeriler.alanlar[idx] = tumVeriler.alanlar[hedefIdx];
+            tumVeriler.alanlar[hedefIdx] = gecici;
+
+            alanlariListele();
+            formuOlustur();
+            tabloBasliklariniOlustur();
+            filtrele();
+
+            try {
+                const ok = await bulutaKaydet();
+                if (!ok) {
+                    tumVeriler.alanlar = yedek;
+                    alanlariListele();
+                    formuOlustur();
+                    tabloBasliklariniOlustur();
+                    filtrele();
+                    alert('Sıralama buluta kaydedilemedi!');
+                }
+            } catch (e) {
+                tumVeriler.alanlar = yedek;
+                alanlariListele();
+                formuOlustur();
+                tabloBasliklariniOlustur();
+                filtrele();
+                alert('Bağlantı hatası!');
+            }
         }
 
         async function alanEkle() {
