@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Güvenli Üye Yönetim Paneli</title>
+    <title>Rol ve İl Tabanlı Üye Yönetim Paneli</title>
     <style>
         :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --border: #cbd5e1; }
         body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
         
-        /* Giriş Ekranı Stilleri */
+        /* Giriş Ekranı */
         #loginContainer { max-width: 400px; margin: 80px auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; }
         #loginContainer h2 { margin-top: 0; color: #0f172a; }
         .login-input { width: 100%; padding: 12px; margin-bottom: 15px; font-size: 15px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; outline: none; }
@@ -17,15 +17,20 @@
         .login-btn:hover { background: #1d4ed8; }
         .error-msg { color: #dc2626; font-size: 14px; margin-top: 10px; display: none; }
 
-        /* Ana Panel Stilleri (Başlangıçta Gizli) */
+        /* Ana Panel */
         #appContainer { display: none; max-width: 1200px; margin: 0 auto; background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         h2, h3 { margin-top: 0; color: #0f172a; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; }
+        .role-badge { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
 
         .form-section { background: #f1f5f9; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
-        input, select { padding: 10px 14px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; outline: none; background: white; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px; }
+        .field-group { display: flex; flex-direction: column; gap: 4px; }
+        .field-group label { font-size: 12px; font-weight: 600; color: #475569; }
+        input, select { padding: 10px 12px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; outline: none; background: white; }
         input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-        button { background: var(--primary); color: white; border: none; padding: 10px 20px; font-size: 15px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        input[readonly] { background: #e2e8f0; color: #475569; cursor: not-allowed; font-weight: 600; }
+        button { background: var(--primary); color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: 500; }
         button:hover { background: #1d4ed8; }
 
         .filter-bar { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
@@ -40,12 +45,11 @@
         .badge.aktif { background: #dcfce7; color: #166534; }
         .badge.pasif { background: #fee2e2; color: #991b1b; }
 
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100; }
         .modal-content { background: white; padding: 24px; border-radius: 8px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
-        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 20px; cursor: pointer; color: #64748b; }
-        .detail-row { margin-bottom: 10px; }
-        .detail-row strong { display: inline-block; width: 130px; color: #64748b; }
-        .loading { text-align: center; color: #64748b; padding: 20px; }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 22px; cursor: pointer; color: #64748b; }
+        .detail-row { margin-bottom: 10px; border-bottom: 1px dashed #e2e8f0; padding-bottom: 6px; }
+        .detail-row strong { display: inline-block; width: 140px; color: #64748b; }
     </style>
 </head>
 <body>
@@ -53,49 +57,35 @@
     <!-- 1. GİRİŞ EKRANI -->
     <div id="loginContainer">
         <h2>Sistem Girişi</h2>
-        <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Lütfen kullanıcı adı ve parolanızı giriniz.</p>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Kullanıcı adı ve parolanızı giriniz.</p>
         <input type="text" id="kullaniciAdi" class="login-input" placeholder="Kullanıcı Adı">
-        <input type="password" id="parola" class="login-input" placeholder="Parola" onkeypress="enterKontrol(event)">
-        <button class="login-btn" onclick="girisYap()">Giriş Yap</button>
+        <input type="password" id="parola" class="login-input" placeholder="Parola" onkeypress="if(event.key==='Enter') girisYap()">
+        <button class="login-btn" id="loginBtn" onclick="girisYap()">Giriş Yap</button>
         <div id="hataKutusu" class="error-msg">Kullanıcı adı veya parola hatalı!</div>
     </div>
 
-    <!-- 2. ANA ÜYE YÖNETİM PANELİ (Başlangıçta Gizli) -->
+    <!-- 2. ANA PANEL -->
     <div id="appContainer">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h2>Üye Yönetim ve Raporlama Paneli</h2>
-            <button onclick="cikisYap()" style="background: #dc2626; padding: 6px 12px; font-size: 13px;">Güvenli Çıkış</button>
+        <div class="top-bar">
+            <div>
+                <h2 style="margin-bottom: 4px;">Üye Yönetim Paneli</h2>
+                <span id="aktifYetkiBilgisi" class="role-badge"></span>
+            </div>
+            <button onclick="cikisYap()" style="background: #dc2626; padding: 8px 14px; font-size: 13px;">Güvenli Çıkış</button>
         </div>
 
-        <!-- Yeni Üye Ekleme Formu -->
+        <!-- Dinamik Üye Ekleme Formu -->
         <div class="form-section">
             <h3>Yeni Üye Kaydı Ekle</h3>
-            <div class="form-grid">
-                <input type="text" id="yeniAd" placeholder="Ad Soyad *" required>
-                <input type="text" id="yeniAnne" placeholder="Anne Adı">
-                <input type="text" id="yeniBaba" placeholder="Baba Adı">
-                <input type="text" id="yeniPlaka" placeholder="Plaka No">
-                <input type="text" id="yeniSehir" placeholder="Şehir">
-                <input type="text" id="yeniMeslek" placeholder="Meslek">
-                <input type="text" id="yeniTelefon" placeholder="Telefon">
-                <input type="email" id="yeniEposta" placeholder="E-posta">
-                <select id="yeniDurum">
-                    <option value="Aktif">Aktif Üye</option>
-                    <option value="Pasif">Pasif Üye</option>
-                </select>
-            </div>
-            <input type="text" id="yeniNot" placeholder="Özel Notlar / Açıklama" style="width: 100%; margin-bottom: 12px; box-sizing: border-box;">
+            <div class="form-grid" id="dinamikFormAlanlari"></div>
             <button onclick="uyeEkle()">Üyeyi Buluta Kaydet</button>
         </div>
 
-        <!-- Arama ve Filtreleme Araçları -->
-        <div class="filter-bar">
-            <input type="text" id="searchInput" placeholder="Ad, anne adı, plaka, şehir veya meslek ara..." onkeyup="filtrele()">
-            <select id="sehirFilter" onchange="filtrele()">
-                <option value="">Tüm Şehirler</option>
-                <option value="Ankara">Ankara</option>
-                <option value="İstanbul">İstanbul</option>
-                <option value="İzmir">İzmir</option>
+        <!-- Arama ve Filtreleme -->
+        <div class="filter-bar" id="filterBar">
+            <input type="text" id="searchInput" placeholder="Tüm alanlarda ara..." onkeyup="filtrele()">
+            <select id="ilFilter" onchange="filtrele()">
+                <option value="">Tüm İller</option>
             </select>
             <select id="durumFilter" onchange="filtrele()">
                 <option value="">Tüm Durumlar</option>
@@ -104,39 +94,21 @@
             </select>
         </div>
 
-        <!-- Üye Tablosu -->
+        <!-- Dinamik Üye Tablosu -->
         <div class="table-responsive">
             <table>
-                <thead>
-                    <tr>
-                        <th>Ad Soyad</th>
-                        <th>Anne / Baba</th>
-                        <th>Plaka No</th>
-                        <th>Şehir / Meslek</th>
-                        <th>Durum</th>
-                    </tr>
-                </thead>
-                <tbody id="uyeTablosu">
-                    <tr><td colspan="5" class="loading">Veriler buluttan yükleniyor...</td></tr>
-                </tbody>
+                <thead id="tabloBasliklari"></thead>
+                <tbody id="uyeTablosu"></tbody>
             </table>
         </div>
     </div>
 
-    <!-- Detay Görüntüleme Modalı -->
+    <!-- Detay Modal -->
     <div id="detayModal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="modalKapat()">&times;</span>
-            <h3 id="modalAd">Üye Detayları</h3>
-            <div class="detail-row"><strong>Anne Adı:</strong> <span id="modalAnne"></span></div>
-            <div class="detail-row"><strong>Baba Adı:</strong> <span id="modalBaba"></span></div>
-            <div class="detail-row"><strong>Plaka No:</strong> <span id="modalPlaka"></span></div>
-            <div class="detail-row"><strong>Telefon:</strong> <span id="modalTelefon"></span></div>
-            <div class="detail-row"><strong>E-posta:</strong> <span id="modalEposta"></span></div>
-            <div class="detail-row"><strong>Şehir:</strong> <span id="modalSehir"></span></div>
-            <div class="detail-row"><strong>Meslek:</strong> <span id="modalMeslek"></span></div>
-            <div class="detail-row"><strong>Kayıt Tarihi:</strong> <span id="modalTarih"></span></div>
-            <div class="detail-row"><strong>Notlar:</strong> <span id="modalNot"></span></div>
+            <h3 id="modalBaslik">Üye Detayları</h3>
+            <div id="modalIcerik"></div>
         </div>
     </div>
 
@@ -145,29 +117,23 @@
         const API_KEY = '$2a$10$.8KHMb55.oiyYEpxDTddwexWgMM09tidhGfKwbmnZ6ah4M/0oewWe';
         const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
-        let tumVeriler = { kullanicilar: [], uyeler: [] };
+        let tumVeriler = { alanlar: [], kullanicilar: [], uyeler: [] };
+        let aktifKullanici = null;
 
-        // Sayfa açıldığında oturum kontrolü
-        window.onload = function() {
-            if (sessionStorage.getItem("girisYapildi") === "true") {
-                verileriVeGirisKontrol();
+        window.onload = async function() {
+            const kayitliOturum = sessionStorage.getItem("aktifKullanici");
+            if (kayitliOturum) {
+                aktifKullanici = JSON.parse(kayitliOturum);
+                await verileriCek();
+                if (aktifKullanici) paneliHazirla();
             }
         };
 
-        // Verileri ve Giriş Bilgilerini Buluttan Çekme
-        async function verileriVeGirisKontrol(girisKontrolFonksiyonu = null) {
+        async function verileriCek() {
             try {
-                const response = await fetch(URL, {
-                    headers: { 'X-Master-Key': API_KEY }
-                });
+                const response = await fetch(URL, { headers: { 'X-Master-Key': API_KEY } });
                 const data = await response.json();
-                tumVeriler = data.record || { kullanicilar: [], uyeler: [] };
-
-                if (girisKontrolFonksiyonu) {
-                    girisKontrolFonksiyonu();
-                } else if (sessionStorage.getItem("girisYapildi") === "true") {
-                    paneliAc();
-                }
+                tumVeriler = data.record || { alanlar: [], kullanicilar: [], uyeler: [] };
             } catch (error) {
                 console.error('Veri çekme hatası:', error);
                 alert('Veritabanına bağlanırken hata oluştu!');
@@ -175,62 +141,202 @@
         }
 
         async function girisYap() {
-            const girilenKullanici = document.getElementById('kullaniciAdi').value.trim();
-            const girilenParola = document.getElementById('parola').value.trim();
+            const kadi = document.getElementById('kullaniciAdi').value.trim();
+            const parola = document.getElementById('parola').value.trim();
             const hataKutusu = document.getElementById('hataKutusu');
+            const btn = document.getElementById('loginBtn');
 
-            // Önce veritabanından en güncel kullanıcı listesini çekelim
-            await verileriVeGirisKontrol(() => {
-                const kullaniciBulundu = tumVeriler.kullanicilar.find(k => k.kadi === girilenKullanici && k.parola === girilenParola);
+            btn.textContent = "Kontrol ediliyor...";
+            btn.disabled = true;
+            hataKutusu.style.display = "none";
 
-                if (kullaniciBulundu) {
-                    sessionStorage.setItem("girisYapildi", "true");
-                    paneliAc();
-                } else {
-                    hataKutusu.style.display = "block";
-                }
-            });
-        }
+            await verileriCek();
 
-        function enterKontrol(event) {
-            if (event.key === "Enter") {
-                girisYap();
+            const bulunan = (tumVeriler.kullanicilar || []).find(k => k.kadi === kadi && k.parola === parola);
+            btn.textContent = "Giriş Yap";
+            btn.disabled = false;
+
+            if (bulunan) {
+                aktifKullanici = bulunan;
+                sessionStorage.setItem("aktifKullanici", JSON.stringify(bulunan));
+                paneliHazirla();
+            } else {
+                hataKutusu.style.display = "block";
             }
         }
 
-        function paneliAc() {
-            document.getElementById('loginContainer').style.display = 'none';
-            document.getElementById('appContainer').style.display = 'block';
-            tabloyuGoster(tumVeriler.uyeler || []);
-        }
-
         function cikisYap() {
-            sessionStorage.removeItem("girisYapildi");
+            sessionStorage.removeItem("aktifKullanici");
             location.reload();
         }
 
-        // --- ÜYE YÖNETİM MANTIĞI ---
+        // Kullanıcının rolüne ve iline göre arayüzü hazırla
+        function paneliHazirla() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('appContainer').style.display = 'block';
+
+            const yetkiSpan = document.getElementById('aktifYetkiBilgisi');
+            const ilFilter = document.getElementById('ilFilter');
+
+            if (aktifKullanici.rol === 'admin') {
+                yetkiSpan.textContent = `Kullanıcı: ${aktifKullanici.kadi} | Yetki: Tam Yönetici (Tüm İller)`;
+                ilFilter.style.display = 'block';
+                ilFiltresiniDoldur();
+            } else {
+                yetkiSpan.textContent = `Kullanıcı: ${aktifKullanici.kadi} | Yetkili İl: ${aktifKullanici.il}`;
+                ilFilter.style.display = 'none'; // İl sorumlusu başka il seçemez
+            }
+
+            formuOlustur();
+            tabloBasliklariniOlustur();
+            filtrele();
+        }
+
+        // JSON'daki "alanlar" dizisine göre formu dinamik oluştur
+        function formuOlustur() {
+            const container = document.getElementById('dinamikFormAlanlari');
+            container.innerHTML = '';
+
+            tumVeriler.alanlar.forEach(alan => {
+                const div = document.createElement('div');
+                div.className = 'field-group';
+
+                const label = document.createElement('label');
+                label.textContent = alan.label + (alan.key === 'ad' || alan.key === 'il' ? ' *' : '');
+
+                const input = document.createElement('input');
+                input.type = alan.type || 'text';
+                input.id = `field_${alan.key}`;
+                input.placeholder = alan.label;
+
+                // İl alanı kısıtlaması
+                if (alan.key === 'il' && aktifKullanici.rol !== 'admin') {
+                    input.value = aktifKullanici.il;
+                    input.readOnly = true;
+                }
+
+                div.appendChild(label);
+                div.appendChild(input);
+                container.appendChild(div);
+            });
+
+            // Durum seçimi standart alan
+            const durumDiv = document.createElement('div');
+            durumDiv.className = 'field-group';
+            durumDiv.innerHTML = `
+                <label>Durum</label>
+                <select id="field_durum">
+                    <option value="Aktif">Aktif</option>
+                    <option value="Pasif">Pasif</option>
+                </select>
+            `;
+            container.appendChild(durumDiv);
+        }
+
+        function tabloBasliklariniOlustur() {
+            const thead = document.getElementById('tabloBasliklari');
+            const gorunurAlanlar = tumVeriler.alanlar.filter(a => a.showInTable);
+            
+            let html = '<tr>';
+            gorunurAlanlar.forEach(alan => {
+                html += `<th>${alan.label}</th>`;
+            });
+            html += '<th>Durum</th></tr>';
+            thead.innerHTML = html;
+        }
+
+        function ilFiltresiniDoldur() {
+            const ilFilter = document.getElementById('ilFilter');
+            const iller = [...new Set((tumVeriler.uyeler || []).map(u => u.il).filter(Boolean))].sort();
+            ilFilter.innerHTML = '<option value="">Tüm İller</option>';
+            iller.forEach(il => {
+                ilFilter.innerHTML += `<option value="${il}">${il}</option>`;
+            });
+        }
+
+        // Kullanıcının yetkili olduğu üyeleri döndürür (Sıkı il izolasyonu)
+        function yetkiliUyeleriGetir() {
+            const tumUyeler = tumVeriler.uyeler || [];
+            if (aktifKullanici.rol === 'admin') {
+                return tumUyeler;
+            }
+            return tumUyeler.filter(u => (u.il || '').toLocaleLowerCase('tr-TR') === aktifKullanici.il.toLocaleLowerCase('tr-TR'));
+        }
+
+        function filtrele() {
+            const arama = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
+            const secilenIl = aktifKullanici.rol === 'admin' ? document.getElementById('ilFilter').value : aktifKullanici.il;
+            const secilenDurum = document.getElementById('durumFilter').value;
+
+            const bazListe = yetkiliUyeleriGetir();
+
+            const filtrelenmis = bazListe.filter(uye => {
+                const metinUyuyor = arama === '' || tumVeriler.alanlar.some(alan => {
+                    const deger = String(uye[alan.key] || '').toLocaleLowerCase('tr-TR');
+                    return deger.includes(arama);
+                });
+
+                const ilUyuyor = secilenIl === '' || (uye.il || '').toLocaleLowerCase('tr-TR') === secilenIl.toLocaleLowerCase('tr-TR');
+                const durumUyuyor = secilenDurum === '' || uye.durum === secilenDurum;
+
+                return metinUyuyor && ilUyuyor && durumUyuyor;
+            });
+
+            tabloyuGoster(filtrelenmis);
+        }
+
+        function tabloyuGoster(liste) {
+            const tbody = document.getElementById('uyeTablosu');
+            const gorunurAlanlar = tumVeriler.alanlar.filter(a => a.showInTable);
+            tbody.innerHTML = '';
+
+            if (liste.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${gorunurAlanlar.length + 1}" style="text-align:center; color:#94a3b8;">Kayıt bulunamadı.</td></tr>`;
+                return;
+            }
+
+            liste.forEach(uye => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => detayGoster(uye);
+                
+                let cells = '';
+                gorunurAlanlar.forEach((alan, idx) => {
+                    const val = uye[alan.key] || '-';
+                    cells += idx === 0 ? `<td><strong>${val}</strong></td>` : `<td>${val}</td>`;
+                });
+                const durum = uye.durum || 'Aktif';
+                cells += `<td><span class="badge ${durum.toLowerCase()}">${durum}</span></td>`;
+                
+                tr.innerHTML = cells;
+                tbody.appendChild(tr);
+            });
+        }
+
         async function uyeEkle() {
-            const ad = document.getElementById('yeniAd').value.trim();
-            if (!ad) {
-                alert('Lütfen en azından bir Ad Soyad girin!');
+            const adInput = document.getElementById('field_ad');
+            if (!adInput || !adInput.value.trim()) {
+                alert('Lütfen Ad Soyad alanını doldurun!');
                 return;
             }
 
             const yeniUye = {
                 id: Date.now(),
-                ad: ad,
-                anne: document.getElementById('yeniAnne').value.trim() || '-',
-                baba: document.getElementById('yeniBaba').value.trim() || '-',
-                plaka: document.getElementById('yeniPlaka').value.trim().toUpperCase() || '-',
-                sehir: document.getElementById('yeniSehir').value.trim() || '-',
-                meslek: document.getElementById('yeniMeslek').value.trim() || '-',
-                telefon: document.getElementById('yeniTelefon').value.trim() || '-',
-                eposta: document.getElementById('yeniEposta').value.trim() || '-',
-                durum: document.getElementById('yeniDurum').value,
-                tarih: new Date().toISOString().split('T')[0],
-                not: document.getElementById('yeniNot').value.trim() || '-'
+                durum: document.getElementById('field_durum').value,
+                tarih: new Date().toISOString().split('T')[0]
             };
+
+            tumVeriler.alanlar.forEach(alan => {
+                const el = document.getElementById(`field_${alan.key}`);
+                yeniUye[alan.key] = el ? el.value.trim() : '';
+            });
+
+            // Güvenlik kilidi: İl kullanıcısı sadece kendi iline kayıt açabilir
+            if (aktifKullanici.rol !== 'admin') {
+                yeniUye.il = aktifKullanici.il;
+            } else if (!yeniUye.il) {
+                alert('Lütfen İl alanını doldurun!');
+                return;
+            }
 
             if (!tumVeriler.uyeler) tumVeriler.uyeler = [];
             tumVeriler.uyeler.push(yeniUye);
@@ -238,85 +344,41 @@
             try {
                 const response = await fetch(URL, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': API_KEY
-                    },
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
                     body: JSON.stringify(tumVeriler)
                 });
 
                 if (response.ok) {
-                    document.querySelectorAll('.form-section input').forEach(input => input.value = '');
-                    document.getElementById('yeniDurum').value = 'Aktif';
-                    tabloyuGoster(tumVeriler.uyeler);
-                    alert('Üye başarıyla buluta kaydedildi!');
+                    tumVeriler.alanlar.forEach(alan => {
+                        if (!(alan.key === 'il' && aktifKullanici.rol !== 'admin')) {
+                            const el = document.getElementById(`field_${alan.key}`);
+                            if (el) el.value = '';
+                        }
+                    });
+                    if (aktifKullanici.rol === 'admin') ilFiltresiniDoldur();
+                    filtrele();
+                    alert('Üye kaydı buluta eklendi!');
                 } else {
                     alert('Kayıt sırasında bulut hatası oluştu!');
                 }
             } catch (error) {
                 console.error('Kayıt hatası:', error);
-                alert('Bağlantı hatası oluştu!');
+                alert('Bağlantı hatası!');
             }
-        }
-
-        function tabloyuGoster(liste) {
-            const tbody = document.getElementById('uyeTablosu');
-            tbody.innerHTML = '';
-
-            if (liste.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Henüz kayıtlı üye bulunmuyor.</td></tr>';
-                return;
-            }
-
-            liste.forEach(uye => {
-                const tr = document.createElement('tr');
-                tr.onclick = () => detayGoster(uye);
-                tr.innerHTML = `
-                    <td><strong>${uye.ad}</strong></td>
-                    <td>${uye.anne} / ${uye.baba}</td>
-                    <td><span style="background:#e2e8f0; padding:2px 6px; border-radius:4px; font-family:monospace;">${uye.plaka}</span></td>
-                    <td>${uye.sehir} - ${uye.meslek}</td>
-                    <td><span class="badge ${uye.durum.toLowerCase()}">${uye.durum}</span></td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function filtrele() {
-            const arama = document.getElementById('searchInput').value.toLowerCase();
-            const sehir = document.getElementById('sehirFilter').value;
-            const durum = document.getElementById('durumFilter').value;
-
-            const uyeler = tumVeriler.uyeler || [];
-            const filtrelenmis = uyeler.filter(uye => {
-                const metinUyuyor = 
-                    uye.ad.toLowerCase().includes(arama) || 
-                    uye.anne.toLowerCase().includes(arama) || 
-                    uye.baba.toLowerCase().includes(arama) || 
-                    uye.plaka.toLowerCase().includes(arama) || 
-                    uye.meslek.toLowerCase().includes(arama) || 
-                    uye.sehir.toLowerCase().includes(arama);
-
-                const sehirUyuyor = sehir === "" || uye.sehir === sehir;
-                const durumUyuyor = durum === "" || uye.durum === durum;
-
-                return metinUyuyor && sehirUyuyor && durumUyuyor;
-            });
-
-            tabloyuGoster(filtrelenmis);
         }
 
         function detayGoster(uye) {
-            document.getElementById('modalAd').textContent = uye.ad;
-            document.getElementById('modalAnne').textContent = uye.anne;
-            document.getElementById('modalBaba').textContent = uye.baba;
-            document.getElementById('modalPlaka').textContent = uye.plaka;
-            document.getElementById('modalTelefon').textContent = uye.telefon;
-            document.getElementById('modalEposta').textContent = uye.eposta;
-            document.getElementById('modalSehir').textContent = uye.sehir;
-            document.getElementById('modalMeslek').textContent = uye.meslek;
-            document.getElementById('modalTarih').textContent = uye.tarih;
-            document.getElementById('modalNot').textContent = uye.not;
+            document.getElementById('modalBaslik').textContent = uye.ad || 'Üye Detayları';
+            const icerik = document.getElementById('modalIcerik');
+            let html = '';
+
+            tumVeriler.alanlar.forEach(alan => {
+                html += `<div class="detail-row"><strong>${alan.label}:</strong> <span>${uye[alan.key] || '-'}</span></div>`;
+            });
+            html += `<div class="detail-row"><strong>Durum:</strong> <span>${uye.durum || '-'}</span></div>`;
+            html += `<div class="detail-row"><strong>Kayıt Tarihi:</strong> <span>${uye.tarih || '-'}</span></div>`;
+
+            icerik.innerHTML = html;
             document.getElementById('detayModal').style.display = 'flex';
         }
 
